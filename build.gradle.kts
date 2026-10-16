@@ -7,7 +7,6 @@ plugins {
 
 group = "dev.matswuuu.hse"
 version = "0.0.1-SNAPSHOT"
-description = "hse-competition"
 
 java {
     toolchain {
@@ -25,6 +24,8 @@ extra["springAiVersion"] = "2.0.1"
 dependencies {
     implementation("org.springframework.boot:spring-boot-starter-data-jpa")
     implementation("org.springframework.boot:spring-boot-starter-webmvc")
+    implementation("org.springframework.boot:spring-boot-starter-validation")
+    implementation("org.springframework.boot:spring-boot-starter-security")
     implementation("org.springframework.ai:spring-ai-starter-model-google-genai")
     implementation("org.springframework.ai:spring-ai-starter-model-google-genai-embedding")
     implementation("org.springframework.ai:spring-ai-starter-model-vertex-ai-embedding")
