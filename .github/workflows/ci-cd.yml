@@ -114,17 +114,10 @@ jobs:
           done
           exit $missing
 
-      - name: Copy compose file
-        uses: appleboy/scp-action@v1
-        with:
-          host: ${{ secrets.SSH_HOST }}
-          port: ${{ secrets.SSH_PORT || 22 }}
-          username: ${{ secrets.SSH_USER }}
-          key: ${{ secrets.SSH_KEY }}
-          source: compose.yaml
-          target: ${{ secrets.DEPLOY_PATH }}
+      - name: Encode compose file
+        run: echo "COMPOSE_B64=$(base64 -w0 compose.yaml)" >> "$GITHUB_ENV"
 
-      - name: Write .env, pull images and restart
+      - name: Upload compose file, write .env, pull images and restart
         uses: appleboy/ssh-action@v1
         env:
           GHCR_USER: ${{ github.actor }}
@@ -140,10 +133,21 @@ jobs:
           port: ${{ secrets.SSH_PORT || 22 }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          envs: GHCR_USER,GHCR_TOKEN,DEPLOY_PATH,IMAGE_SHA,POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,SITE_ADDRESS
+          envs: COMPOSE_B64,GHCR_USER,GHCR_TOKEN,DEPLOY_PATH,IMAGE_SHA,POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,SITE_ADDRESS
           script: |
             set -eu
+
+            # Strip CR/LF that sneak in when secrets are pasted into the GitHub UI
+            trim() { printf '%s' "$1" | tr -d '\r\n'; }
+            DEPLOY_PATH=$(trim "$DEPLOY_PATH")
+            POSTGRES_DB=$(trim "$POSTGRES_DB")
+            POSTGRES_USER=$(trim "$POSTGRES_USER")
+            POSTGRES_PASSWORD=$(trim "$POSTGRES_PASSWORD")
+            SITE_ADDRESS=$(trim "$SITE_ADDRESS")
+
+            mkdir -p "$DEPLOY_PATH"
             cd "$DEPLOY_PATH"
+            printf '%s' "$COMPOSE_B64" | base64 -d > compose.yaml
 
             if [ -z "$POSTGRES_PASSWORD" ]; then
               echo "POSTGRES_PASSWORD secret is not set" >&2
