@@ -107,22 +107,46 @@ jobs:
           source: compose.yaml
           target: ${{ secrets.DEPLOY_PATH }}
 
-      - name: Pull images and restart
+      - name: Write .env, pull images and restart
         uses: appleboy/ssh-action@v1
         env:
           GHCR_USER: ${{ github.actor }}
           GHCR_TOKEN: ${{ secrets.GITHUB_TOKEN }}
           DEPLOY_PATH: ${{ secrets.DEPLOY_PATH }}
+          IMAGE_SHA: ${{ github.sha }}
+          POSTGRES_DB: ${{ vars.POSTGRES_DB || 'hse_competition' }}
+          POSTGRES_USER: ${{ vars.POSTGRES_USER || 'postgres' }}
+          POSTGRES_PASSWORD: ${{ secrets.POSTGRES_PASSWORD }}
+          SITE_ADDRESS: ${{ vars.SITE_ADDRESS || 'hse-competition.matswuuu.dev' }}
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT || 22 }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          envs: GHCR_USER,GHCR_TOKEN,DEPLOY_PATH
+          envs: GHCR_USER,GHCR_TOKEN,DEPLOY_PATH,IMAGE_SHA,POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,SITE_ADDRESS
           script: |
-            set -euo pipefail
+            set -eu
             cd "$DEPLOY_PATH"
-            export IMAGE_TAG="sha-$(echo "${{ github.sha }}" | cut -c1-7)"
+
+            if [ -z "$POSTGRES_PASSWORD" ]; then
+              echo "POSTGRES_PASSWORD secret is not set" >&2
+              exit 1
+            fi
+            case "$POSTGRES_DB$POSTGRES_USER$POSTGRES_PASSWORD$SITE_ADDRESS" in *"'"*)
+              echo "DB settings and SITE_ADDRESS must not contain single quotes" >&2
+              exit 1
+            esac
+
+            # Values are single-quoted so compose takes them literally (no $ interpolation)
+            umask 077
+            {
+              echo "IMAGE_TAG='sha-$(echo "$IMAGE_SHA" | cut -c1-7)'"
+              echo "POSTGRES_DB='$POSTGRES_DB'"
+              echo "POSTGRES_USER='$POSTGRES_USER'"
+              echo "POSTGRES_PASSWORD='$POSTGRES_PASSWORD'"
+              echo "SITE_ADDRESS='$SITE_ADDRESS'"
+            } > .env
+
             echo "$GHCR_TOKEN" | docker login ghcr.io -u "$GHCR_USER" --password-stdin
             docker compose pull backend caddy
             docker compose up -d --remove-orphans
