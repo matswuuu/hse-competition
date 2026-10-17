@@ -17,7 +17,6 @@ import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
-/** Minimal product analytics (§4.10): event log for the experiment and demo numbers. */
 @Entity
 @Table(name = "analytics_events")
 @Getter

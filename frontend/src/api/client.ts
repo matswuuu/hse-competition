@@ -11,7 +11,13 @@ export class ApiError extends Error {
   }
 }
 
+// Backend uses stateless HTTP Basic auth, so the "token" is base64(username:password).
 let authToken: string | null = localStorage.getItem('token')
+
+export function basicToken(username: string, password: string) {
+  const bytes = new TextEncoder().encode(`${username}:${password}`)
+  return btoa(String.fromCharCode(...bytes))
+}
 
 export function setAuthToken(token: string | null) {
   authToken = token
@@ -24,7 +30,7 @@ export async function api<T>(path: string, init: RequestInit = {}): Promise<T> {
   if (init.body && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json')
   }
-  if (authToken) headers.set('Authorization', `Bearer ${authToken}`)
+  if (authToken) headers.set('Authorization', `Basic ${authToken}`)
 
   const res = await fetch(`${BASE_URL}${path}`, { ...init, headers })
   const text = await res.text()
@@ -38,3 +44,6 @@ export const get = <T>(path: string) => api<T>(path)
 
 export const post = <T>(path: string, data?: unknown) =>
   api<T>(path, { method: 'POST', body: data === undefined ? undefined : JSON.stringify(data) })
+
+export const patch = <T>(path: string, data: unknown) =>
+  api<T>(path, { method: 'PATCH', body: JSON.stringify(data) })
