@@ -1,0 +1,60 @@
+spring:
+  application:
+    name: hse-competition
+  datasource:
+    url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/hse_competition}
+    username: ${SPRING_DATASOURCE_USERNAME:postgres}
+    password: ${SPRING_DATASOURCE_PASSWORD:postgres}
+    driver-class-name: org.postgresql.Driver
+  jpa:
+    hibernate:
+      ddl-auto: update
+    show-sql: false
+    properties:
+      hibernate:
+        format_sql: true
+    open-in-view: false
+  autoconfigure:
+    exclude:
+      - org.springframework.ai.model.google.genai.autoconfigure.chat.GoogleGenAiChatAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiTextEmbeddingAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.image.GoogleGenAiImageAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.image.GoogleGenAiImageConnectionAutoConfiguration
+      - org.springframework.ai.model.vertexai.autoconfigure.embedding.VertexAiEmbeddingConnectionAutoConfiguration
+      - org.springframework.ai.model.vertexai.autoconfigure.embedding.VertexAiMultiModalEmbeddingAutoConfiguration
+      - org.springframework.ai.model.vertexai.autoconfigure.embedding.VertexAiTextEmbeddingAutoConfiguration
+
+nutrition:
+  activity-coefficients:
+    SEDENTARY: 1.2
+    LIGHT: 1.375
+    MODERATE: 1.55
+    ACTIVE: 1.725
+    VERY_ACTIVE: 1.9
+  goal-adjustment-pct:
+    GAIN: 10.0
+    MAINTAIN: 0.0
+    LOSE: -15.0
+  protein-g-per-kg:
+    GAIN: 2.0
+    MAINTAIN: 1.8
+    LOSE: 2.2
+  fat-g-per-kg:
+    GAIN: 1.0
+    MAINTAIN: 1.0
+    LOSE: 0.9
+  carbs-g-per-kg:
+    GAIN: 5.0
+    MAINTAIN: 4.0
+    LOSE: 3.0
+  training-day-carbs-extra-g-per-kg: 1.0
+  min-calories:
+    MALE: 1500.0
+    FEMALE: 1200.0
+  tolerance-pct: 10.0
+  max-attempts: 5
+  source-name: "USDA FoodData Central (open data, adapted for MVP demo)"
+  source-url: "https://fdc.nal.usda.gov/"
+  llm:
+    enabled: false

@@ -1,6 +1,7 @@
 package dev.matswuuu.hse.config;
 
 import dev.matswuuu.hse.user.UserRepository;
+import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.security.config.Customizer;
@@ -38,7 +39,9 @@ public class SecurityConfig {
     public SecurityFilterChain securityFilterChain(HttpSecurity http) throws Exception {
         http.csrf(AbstractHttpConfigurer::disable)
                 .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
-                .authorizeHttpRequests(auth -> auth.requestMatchers("/api/users/signup", "/api/users/login")
+                .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(DispatcherType.ERROR)
+                        .permitAll()
+                        .requestMatchers("/api/users/signup", "/api/users/login")
                         .permitAll()
                         .anyRequest()
                         .authenticated())
