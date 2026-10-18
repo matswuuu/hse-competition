@@ -3,43 +3,30 @@ package dev.matswuuu.hse.plan;
 import dev.matswuuu.hse.analytics.AnalyticsEventType;
 import dev.matswuuu.hse.analytics.AnalyticsService;
 import dev.matswuuu.hse.common.CurrentUser;
+import dev.matswuuu.hse.dish.DishCatalog;
 import dev.matswuuu.hse.food.Product;
 import dev.matswuuu.hse.nutrition.DayTargets;
 import dev.matswuuu.hse.nutrition.NutritionProperties;
 import dev.matswuuu.hse.nutrition.NutritionTarget;
 import dev.matswuuu.hse.nutrition.NutritionTargetCalculator;
-import dev.matswuuu.hse.plan.dto.DayViewResponse;
-import dev.matswuuu.hse.dish.DishCatalog;
-import dev.matswuuu.hse.plan.dto.DishCardResponse;
-import dev.matswuuu.hse.plan.dto.MealSummaryResponse;
-import dev.matswuuu.hse.plan.dto.NutritionFacts;
-import dev.matswuuu.hse.plan.dto.ShoppingListResponse;
-import dev.matswuuu.hse.plan.dto.WeekResponse;
-import dev.matswuuu.hse.plan.gen.DemoMealPlanner;
-import dev.matswuuu.hse.plan.gen.MealPlanner;
-import dev.matswuuu.hse.plan.gen.PlanContext;
-import dev.matswuuu.hse.plan.gen.PlannedDay;
-import dev.matswuuu.hse.plan.gen.PlannedIngredient;
-import dev.matswuuu.hse.plan.gen.PlannedMeal;
-import dev.matswuuu.hse.plan.gen.PlannerException;
+import dev.matswuuu.hse.plan.dto.*;
+import dev.matswuuu.hse.plan.gen.*;
 import dev.matswuuu.hse.questionnaire.Questionnaire;
 import dev.matswuuu.hse.questionnaire.QuestionnaireService;
 import dev.matswuuu.hse.user.User;
-import java.time.LocalDate;
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-import java.util.TreeMap;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.beans.factory.ObjectProvider;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.http.HttpStatus;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.server.ResponseStatusException;
+
+import java.time.Duration;
+import java.time.Instant;
+import java.time.LocalDate;
+import java.util.*;
 
 @Service
 public class PlanService {
@@ -61,6 +48,7 @@ public class PlanService {
     private final ObjectProvider<MealPlanner> planners;
     private final AnalyticsService analyticsService;
     private final DishCatalog dishCatalog;
+    private final Duration llmTimeout;
 
     public PlanService(
             MealPlanRepository planRepository,
@@ -74,7 +62,8 @@ public class PlanService {
             DemoMealPlanner demoPlanner,
             ObjectProvider<MealPlanner> planners,
             AnalyticsService analyticsService,
-            DishCatalog dishCatalog) {
+            DishCatalog dishCatalog,
+            @Value("${nutrition.llm.timeout:60s}") Duration llmTimeout) {
         this.planRepository = planRepository;
         this.dayRepository = dayRepository;
         this.mealRepository = mealRepository;
@@ -87,6 +76,7 @@ public class PlanService {
         this.planners = planners;
         this.analyticsService = analyticsService;
         this.dishCatalog = dishCatalog;
+        this.llmTimeout = llmTimeout;
     }
 
     /**
@@ -106,6 +96,15 @@ public class PlanService {
                 q.getSex(), q.getAge(), q.getHeightCm(), q.getWeightKg(), q.getActivityLevel(), q.getGoal());
         LocalDate startDate = LocalDate.now();
         long started = System.nanoTime();
+        Long previousPlanId = planRepository
+                .findFirstByUserIdOrderByCreatedAtDesc(user.getId())
+                .map(MealPlan::getId)
+                .orElse(null);
+        if (previousPlanId != null) {
+            log.info("User {} is regenerating plan (previous planId={})", user.getId(), previousPlanId);
+        } else {
+            log.info("User {} is generating first plan", user.getId());
+        }
 
         Map<String, Product> index = nutritionService.productIndex();
         Set<String> exclusions = DemoMealPlanner.collectExclusions(q);
@@ -113,19 +112,33 @@ public class PlanService {
         String usedPlanner = demoPlanner.name();
         boolean fallbackUsed = true;
         Set<String> banned = new HashSet<>();
+        Set<MealPlanner> timedOut = new HashSet<>();
+        Instant deadline = Instant.now().plus(llmTimeout);
 
         outer:
         for (int round = 0; round < properties.getMaxAttempts(); round++) {
             for (MealPlanner planner : orderedPlanners()) {
+                if (timedOut.contains(planner)) {
+                    continue;
+                }
                 List<PlannedDay> days;
+                long plannerStarted = System.nanoTime();
                 try {
-                    days = planner.plan(new PlanContext(q, targets, startDate, round, Set.copyOf(banned)));
+                    days = planner.plan(new PlanContext(q, targets, startDate, round, Set.copyOf(banned), deadline));
+                } catch (PlannerTimeoutException e) {
+                    timedOut.add(planner);
+                    log.warn("Planner {} timed out for user {} on round {} after {} ms, skipping it for this plan: {}",
+                            planner.name(), user.getId(), round, elapsedMs(plannerStarted), e.getMessage());
+                    continue;
                 } catch (PlannerException e) {
-                    log.warn("Planner {} failed on round {}: {}", planner.name(), round, e.getMessage());
+                    log.warn("Planner {} failed for user {} on round {} after {} ms: {}",
+                            planner.name(), user.getId(), round, elapsedMs(plannerStarted), e.getMessage());
                     continue;
                 }
                 Candidate candidate = verify(days, targets, exclusions, index);
                 if (candidate == null) {
+                    log.warn("Planner {} produced a plan violating constraints for user {} on round {}",
+                            planner.name(), user.getId(), round);
                     continue;
                 }
                 if (best == null || candidate.deviation() < best.deviation()) {
@@ -149,6 +162,7 @@ public class PlanService {
             }
         }
         if (best == null) {
+            log.warn("Plan generation failed for user {}: no candidate within constraints", user.getId());
             throw new ResponseStatusException(
                     HttpStatus.UNPROCESSABLE_ENTITY, "Could not compose a plan within constraints, adjust exclusions");
         }
@@ -163,6 +177,10 @@ public class PlanService {
         }
         long ms = (System.nanoTime() - started) / 1_000_000;
         plan.setGenerationTimeMs(ms);
+        log.info(
+                "Generated planId={} for user {} (previous planId={}, planner={}, fallback={}, deviation={}%, {} ms)",
+                plan.getId(), user.getId(), previousPlanId, usedPlanner, fallbackUsed,
+                Math.round(best.deviation() * 10.0) / 10.0, ms);
         analyticsService.log(
                 user,
                 AnalyticsEventType.PLAN_GENERATED,
@@ -491,6 +509,10 @@ public class PlanService {
                         .toList(),
                 List.copyOf(meal.getSteps()),
                 dishCatalog.recipeUrls(meal.getDishName()));
+    }
+
+    private static long elapsedMs(long startedNanos) {
+        return (System.nanoTime() - startedNanos) / 1_000_000;
     }
 
     private static double clamp(double value, double min, double max) {

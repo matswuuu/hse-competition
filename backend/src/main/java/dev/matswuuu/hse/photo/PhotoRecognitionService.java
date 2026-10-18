@@ -1,6 +1,7 @@
 package dev.matswuuu.hse.photo;
 
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
+import dev.matswuuu.hse.common.CurrentUser;
 import dev.matswuuu.hse.food.Product;
 import dev.matswuuu.hse.photo.dto.PhotoRecognitionResponse;
 import dev.matswuuu.hse.photo.dto.RecognizedItem;
@@ -26,6 +27,8 @@ import java.util.List;
 import java.util.Map;
 import java.util.Set;
 import java.util.stream.Collectors;
+
+import static dev.matswuuu.hse.common.LogText.*;
 
 /**
  * Calories from a photo (§4.9, P2): the vision model only names foods and estimates grams,
@@ -75,19 +78,43 @@ public class PhotoRecognitionService {
             throw new ResponseStatusException(HttpStatus.UNSUPPORTED_MEDIA_TYPE, "Unsupported image type");
         }
 
+        Long userId = CurrentUser.USER.isBound() ? CurrentUser.USER.get().getId() : null;
         Map<String, Product> index = nutritionService.productIndex();
+        String prompt = buildPrompt(index);
+        long started = System.nanoTime();
         String answer;
         try {
             var message = UserMessage.builder()
-                    .text(buildPrompt(index))
+                    .text(prompt)
                     .media(new Media(MimeType.valueOf(contentType), new ByteArrayResource(image)))
                     .build();
-            answer = chatModel.getObject().call(new Prompt(message)).getResult().getOutput().getText();
+            var result = chatModel.getObject().call(new Prompt(message)).getResult();
+            answer = result == null || result.getOutput() == null ? null : result.getOutput().getText();
         } catch (Exception e) {
-            log.warn("Photo recognition call failed", e);
+            log.warn("Photo recognition call failed for user {} after {} ms (image {} bytes, {}): {}",
+                    userId, elapsedMs(started), image.length, contentType, describe(e), e);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Recognition failed");
         }
-        return toResponse(parse(answer), index);
+        if (answer == null || answer.isBlank()) {
+            log.warn("Photo recognition returned an empty answer for user {} after {} ms (image {} bytes, {})",
+                    userId, elapsedMs(started), image.length, contentType);
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Empty recognition answer");
+        }
+        List<LlmItem> items;
+        try {
+            items = parse(answer);
+        } catch (ResponseStatusException e) {
+            log.warn("Photo recognition answer rejected for user {} after {} ms: {} (cause: {}). Answer ({} chars): {}",
+                    userId, elapsedMs(started), e.getReason(), describe(e.getCause()), answer.length(), truncate(answer));
+            throw e;
+        }
+        PhotoRecognitionResponse response = toResponse(items, index);
+        long matched = response.items().stream().filter(i -> i.productName() != null).count();
+        log.info("Photo recognized for user {} in {} ms (image {} bytes, {}): {} items, {} matched to products, "
+                        + "prompt {} chars, answer {} chars",
+                userId, elapsedMs(started), image.length, contentType, response.items().size(), matched,
+                prompt.length(), answer.length());
+        return response;
     }
 
     private String buildPrompt(Map<String, Product> index) {
@@ -113,21 +140,16 @@ public class PhotoRecognitionService {
     }
 
     private List<LlmItem> parse(String answer) {
-        if (answer == null) {
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Empty recognition answer");
-        }
         int start = answer.indexOf('{');
         int end = answer.lastIndexOf('}');
         if (start < 0 || end <= start) {
-            log.warn("Photo recognition answer is not JSON: {}", answer);
             throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Recognition answer is not JSON");
         }
         try {
             LlmAnswer parsed = objectMapper.readValue(answer.substring(start, end + 1), LlmAnswer.class);
             return parsed.items() == null ? List.of() : parsed.items();
         } catch (Exception e) {
-            log.warn("Cannot parse photo recognition answer: {}", answer, e);
-            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Cannot parse recognition answer");
+            throw new ResponseStatusException(HttpStatus.BAD_GATEWAY, "Cannot parse recognition answer", e);
         }
     }
 

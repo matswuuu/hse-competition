@@ -21,3 +21,5 @@ spring:
 nutrition:
   llm:
     enabled: true
+    # Total budget for LLM calls per plan generation; the demo planner takes over after it.
+    timeout: ${LLM_TIMEOUT:60s}

@@ -2,13 +2,17 @@ package dev.matswuuu.hse.plan.gen;
 
 import dev.matswuuu.hse.nutrition.DayTargets;
 import dev.matswuuu.hse.questionnaire.Questionnaire;
+import java.time.Instant;
 import java.time.LocalDate;
 import java.util.Set;
 
-/** Everything a planner needs to compose 7 days. */
+/**
+ * Everything a planner needs to compose 7 days. {@code deadline} bounds slow (LLM) planners
+ * across all rounds of one generation.
+ */
 public record PlanContext(
         Questionnaire questionnaire, DayTargets targets, LocalDate startDate, int round,
-        Set<String> bannedDishes) {
+        Set<String> bannedDishes, Instant deadline) {
 
     /** Training flags for the 7 days, derived from the questionnaire weekdays. */
     public boolean[] trainingDays() {

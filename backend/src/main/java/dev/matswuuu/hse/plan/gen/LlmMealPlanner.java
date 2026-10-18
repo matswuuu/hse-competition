@@ -13,21 +13,30 @@ import org.springframework.boot.autoconfigure.condition.ConditionalOnProperty;
 import org.springframework.stereotype.Service;
 import tools.jackson.databind.ObjectMapper;
 
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Set;
+import java.util.concurrent.*;
 import java.util.stream.Collectors;
+
+import static dev.matswuuu.hse.common.LogText.*;
 
 /**
  * LLM dish picker (§4.3): proposes dishes as strict JSON, КБЖУ recomputed by code.
  * Active only with {@code nutrition.llm.enabled=true} and a configured model;
- * any failure falls back to the demo planner.
+ * any failure falls back to the demo planner. All calls of one generation share the
+ * {@code nutrition.llm.timeout} budget (default 60s).
  */
 @Service
 @ConditionalOnProperty(name = "nutrition.llm.enabled", havingValue = "true")
 public class LlmMealPlanner implements MealPlanner {
 
     private static final Logger log = LoggerFactory.getLogger(LlmMealPlanner.class);
+
+    /** Runs model calls so they can be abandoned on deadline; the HTTP client itself has no timeout here. */
+    private final ExecutorService executor = Executors.newVirtualThreadPerTaskExecutor();
 
     private final ObjectProvider<ChatModel> chatModel;
     private final ProductRepository productRepository;
@@ -61,15 +70,57 @@ public class LlmMealPlanner implements MealPlanner {
         if (model == null) {
             throw new PlannerException("No chat model available");
         }
+        Duration remaining = Duration.between(Instant.now(), context.deadline());
+        if (remaining.isNegative() || remaining.isZero()) {
+            throw new PlannerTimeoutException("LLM time budget exhausted before round " + context.round());
+        }
+        Long userId = context.questionnaire().getUser() == null ? null : context.questionnaire().getUser().getId();
+        String prompt;
         try {
-            String prompt = buildPrompt(context);
-            String answer = model.call(prompt);
-            return parse(answer, context);
-        } catch (PlannerException e) {
-            throw e;
+            prompt = buildPrompt(context);
         } catch (Exception e) {
-            log.warn("LLM planning failed, falling back to demo planner", e);
-            throw new PlannerException("LLM planning failed: " + e.getMessage(), e);
+            log.warn("Cannot build LLM prompt for user {} round {}", userId, context.round(), e);
+            throw new PlannerException("Cannot build LLM prompt: " + describe(e), e);
+        }
+        long started = System.nanoTime();
+        String answer = call(model, prompt, remaining, userId, context.round(), started);
+        try {
+            List<PlannedDay> days = parse(answer, context);
+            log.info("LLM plan for user {} round {} parsed in {} ms (prompt {} chars, answer {} chars)",
+                    userId, context.round(), elapsedMs(started), prompt.length(), answer.length());
+            return days;
+        } catch (PlannerException e) {
+            log.warn("LLM answer rejected for user {} round {} after {} ms: {} (cause: {}). Answer ({} chars): {}",
+                    userId, context.round(), elapsedMs(started), e.getMessage(), describe(e.getCause()),
+                    answer.length(), truncate(answer));
+            throw e;
+        }
+    }
+
+    private String call(ChatModel model, String prompt, Duration timeout, Long userId, int round, long started) {
+        Future<String> future = executor.submit(() -> model.call(prompt));
+        try {
+            String answer = future.get(timeout.toMillis(), TimeUnit.MILLISECONDS);
+            if (answer == null || answer.isBlank()) {
+                log.warn("LLM returned an empty answer for user {} round {} after {} ms",
+                        userId, round, elapsedMs(started));
+                throw new PlannerException("LLM answer is empty");
+            }
+            return answer;
+        } catch (TimeoutException e) {
+            future.cancel(true);
+            log.warn("LLM call timed out for user {} round {} after {} ms (budget left was {} ms, prompt {} chars)",
+                    userId, round, elapsedMs(started), timeout.toMillis(), prompt.length());
+            throw new PlannerTimeoutException("LLM call timed out after " + timeout.toMillis() + " ms", e);
+        } catch (ExecutionException e) {
+            Throwable cause = e.getCause() == null ? e : e.getCause();
+            log.warn("LLM call failed for user {} round {} after {} ms: {}",
+                    userId, round, elapsedMs(started), describe(cause), cause);
+            throw new PlannerException("LLM call failed: " + describe(cause), cause);
+        } catch (InterruptedException e) {
+            future.cancel(true);
+            Thread.currentThread().interrupt();
+            throw new PlannerException("Interrupted while waiting for LLM", e);
         }
     }
 
