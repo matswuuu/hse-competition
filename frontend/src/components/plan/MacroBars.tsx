@@ -1,24 +1,26 @@
+import { useTranslation } from 'react-i18next'
 import type { NutritionFacts } from '@/api/plans'
 import { round } from './format'
 
-const MACROS: { key: keyof NutritionFacts; label: string; unit: string }[] = [
-  { key: 'kcal', label: 'Калории', unit: 'ккал' },
-  { key: 'proteinG', label: 'Белки', unit: 'г' },
-  { key: 'fatG', label: 'Жиры', unit: 'г' },
-  { key: 'carbsG', label: 'Углеводы', unit: 'г' },
+const MACROS: { key: keyof NutritionFacts; unit: 'kcal' | 'g' }[] = [
+  { key: 'kcal', unit: 'kcal' },
+  { key: 'proteinG', unit: 'g' },
+  { key: 'fatG', unit: 'g' },
+  { key: 'carbsG', unit: 'g' },
 ]
 
 export default function MacroBars({ totals, targets }: { totals: NutritionFacts; targets: NutritionFacts }) {
+  const { t } = useTranslation()
   return (
     <div className="macro-bars">
-      {MACROS.map(({ key, label, unit }) => {
+      {MACROS.map(({ key, unit }) => {
         const pct = targets[key] > 0 ? (totals[key] / targets[key]) * 100 : 0
         return (
           <div key={key} className="macro">
             <div className="macro-head">
-              <span>{label}</span>
+              <span>{t(`plan.macros.${key}`)}</span>
               <span className="macro-value">
-                {round(totals[key])} / {round(targets[key])} {unit}
+                {round(totals[key])} / {round(targets[key])} {t(`common.${unit}`)}
               </span>
             </div>
             <div className="macro-track" role="presentation">

@@ -1,6 +1,9 @@
 spring:
   application:
     name: hse-competition
+  config:
+    # Default dishes seeded into the dishes table (see DishSeeder).
+    import: classpath:meals.yaml
   datasource:
     url: ${SPRING_DATASOURCE_URL:jdbc:postgresql://localhost:5432/hse_competition}
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
@@ -54,7 +57,7 @@ nutrition:
     FEMALE: 1200.0
   tolerance-pct: 10.0
   max-attempts: 5
-  source-name: "USDA FoodData Central (open data, adapted for MVP demo)"
+  source-name: "USDA FoodData Central"
   source-url: "https://fdc.nal.usda.gov/"
   llm:
     enabled: false

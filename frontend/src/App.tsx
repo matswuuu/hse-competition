@@ -1,13 +1,17 @@
-import { Route, Routes } from 'react-router'
+import { Navigate, Route, Routes } from 'react-router'
 import Layout from '@/components/Layout'
 import HomePage from '@/pages/HomePage'
 import LoginPage from '@/pages/LoginPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import PhotoPage from '@/pages/PhotoPage'
 import PrivacyPage from '@/pages/PrivacyPage'
-import ProfilePage from '@/pages/ProfilePage'
+import DataPage from '@/pages/profile/DataPage'
+import OverviewPage from '@/pages/profile/OverviewPage'
+import PlanPage from '@/pages/profile/PlanPage'
+import ProfileLayout from '@/pages/profile/ProfileLayout'
+import SettingsPage from '@/pages/profile/SettingsPage'
+import ShoppingPage from '@/pages/profile/ShoppingPage'
 import RegisterPage from '@/pages/RegisterPage'
-import SettingsPage from '@/pages/SettingsPage'
 import TermsPage from '@/pages/TermsPage'
 
 export default function App() {
@@ -17,9 +21,15 @@ export default function App() {
         <Route index element={<HomePage />} />
         <Route path="login" element={<LoginPage />} />
         <Route path="register" element={<RegisterPage />} />
-        <Route path="profile" element={<ProfilePage />} />
+        <Route path="profile" element={<ProfileLayout />}>
+          <Route index element={<OverviewPage />} />
+          <Route path="plan" element={<PlanPage />} />
+          <Route path="shopping" element={<ShoppingPage />} />
+          <Route path="data" element={<DataPage />} />
+          <Route path="settings" element={<SettingsPage />} />
+        </Route>
+        <Route path="settings" element={<Navigate to="/profile/settings" replace />} />
         <Route path="photo" element={<PhotoPage />} />
-        <Route path="settings" element={<SettingsPage />} />
         <Route path="terms" element={<TermsPage />} />
         <Route path="privacy" element={<PrivacyPage />} />
         <Route path="*" element={<NotFoundPage />} />

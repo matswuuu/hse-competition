@@ -1,11 +1,12 @@
 package dev.matswuuu.hse;
 
+import dev.matswuuu.hse.dish.DefaultMealsProperties;
 import dev.matswuuu.hse.nutrition.NutritionProperties;
 import org.springframework.boot.SpringApplication;
 import org.springframework.boot.autoconfigure.SpringBootApplication;
 import org.springframework.boot.context.properties.EnableConfigurationProperties;
 
-@EnableConfigurationProperties(NutritionProperties.class)
+@EnableConfigurationProperties({NutritionProperties.class, DefaultMealsProperties.class})
 @SpringBootApplication
 public class HseCompetitionApplication {
 

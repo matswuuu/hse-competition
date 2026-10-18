@@ -1,10 +1,12 @@
 import { useState, type FormEvent } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { ApiError } from '@/api/client'
 import { useAuth } from '@/auth/context'
 
 export default function LoginPage() {
   const { user, login } = useAuth()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
@@ -24,21 +26,17 @@ export default function LoginPage() {
       await login({ username: username.trim(), password })
       navigate(from, { replace: true })
     } catch (err) {
-      setError(
-        err instanceof ApiError && err.status === 401
-          ? 'Неверное имя пользователя или пароль'
-          : 'Не удалось войти. Попробуйте позже',
-      )
+      setError(err instanceof ApiError && err.status === 401 ? t('auth.loginInvalid') : t('auth.loginFailed'))
       setSubmitting(false)
     }
   }
 
   return (
     <section className="auth">
-      <h1>Вход</h1>
+      <h1>{t('auth.loginTitle')}</h1>
       <form className="auth-form" onSubmit={handleSubmit}>
         <label>
-          Имя пользователя
+          {t('auth.username')}
           <input
             name="username"
             autoComplete="username"
@@ -48,7 +46,7 @@ export default function LoginPage() {
           />
         </label>
         <label>
-          Пароль
+          {t('auth.password')}
           <input
             name="password"
             type="password"
@@ -64,13 +62,13 @@ export default function LoginPage() {
           </p>
         )}
         <button type="submit" disabled={submitting}>
-          {submitting ? 'Вход…' : 'Войти'}
+          {submitting ? t('auth.loginSubmitting') : t('auth.loginSubmit')}
         </button>
       </form>
       <p className="auth-switch">
-        Нет аккаунта?{' '}
+        {t('auth.noAccount')}{' '}
         <Link to="/register" state={location.state}>
-          Зарегистрироваться
+          {t('auth.toRegister')}
         </Link>
       </p>
     </section>

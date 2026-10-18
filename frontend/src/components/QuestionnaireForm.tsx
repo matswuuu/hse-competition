@@ -1,16 +1,17 @@
 import { useState, type FormEvent, type ReactNode } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link } from 'react-router'
 import { ApiError } from '@/api/client'
 import * as questionnaireApi from '@/api/questionnaire'
 import type { ActivityLevel, CookingTime, Goal, QuestionnaireResponse, Sex } from '@/api/questionnaire'
-import { ACTIVITY_OPTIONS, COOKING_OPTIONS, GOAL_OPTIONS, SEX_OPTIONS, WEEKDAYS } from '@/labels'
-
-const MEALS_OPTIONS = [3, 4, 5]
-
-// Lowercase: the backend normalizes tags, so saved values come back this way.
-const EXCLUSION_TAGS = ['свинина', 'говядина', 'рыба', 'морепродукты', 'молоко', 'яйца', 'орехи', 'грибы']
-
-const capitalize = (s: string) => s.charAt(0).toUpperCase() + s.slice(1)
+import {
+  ACTIVITY_VALUES,
+  COOKING_VALUES,
+  EXCLUSION_TAGS,
+  GOAL_VALUES,
+  MEALS_PER_DAY_VALUES,
+  SEX_VALUES,
+} from '@/labels'
 
 function toggle<T>(set: T[], value: T) {
   return set.includes(value) ? set.filter((v) => v !== value) : [...set, value]
@@ -44,7 +45,8 @@ interface Props {
   onSubmitted: (saved: QuestionnaireResponse) => void
 }
 
-export default function QuestionnaireForm({ initial, submitLabel = 'Готово', onSubmitted }: Props) {
+export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }: Props) {
+  const { t } = useTranslation()
   const [sex, setSex] = useState<Sex | null>(initial?.sex ?? null)
   const [age, setAge] = useState(initial ? String(initial.age) : '')
   const [heightCm, setHeightCm] = useState(initial ? String(initial.heightCm) : '')
@@ -65,7 +67,7 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (!sex || !goal) {
-      setError('Укажите пол и цель')
+      setError(t('questionnaire.sexAndGoalRequired'))
       return
     }
     setError(null)
@@ -91,9 +93,7 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
       onSubmitted(saved)
     } catch (err) {
       setError(
-        err instanceof ApiError && err.status === 400
-          ? 'Проверьте правильность заполнения полей'
-          : 'Не удалось сохранить анкету. Попробуйте позже',
+        err instanceof ApiError && err.status === 400 ? t('auth.checkFields') : t('questionnaire.saveFailed'),
       )
       setSubmitting(false)
     }
@@ -102,11 +102,11 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
   return (
     <form className="auth-form questionnaire" onSubmit={handleSubmit}>
       <fieldset>
-        <legend>Пол</legend>
+        <legend>{t('questionnaire.sex')}</legend>
         <div className="chips">
-          {SEX_OPTIONS.map((o) => (
-            <Chip key={o.value} type="radio" name="sex" checked={sex === o.value} onChange={() => setSex(o.value)}>
-              {o.label}
+          {SEX_VALUES.map((v) => (
+            <Chip key={v} type="radio" name="sex" checked={sex === v} onChange={() => setSex(v)}>
+              {t(`options.sex.${v}`)}
             </Chip>
           ))}
         </div>
@@ -114,11 +114,11 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
 
       <div className="field-row">
         <label>
-          Возраст
+          {t('questionnaire.age')}
           <input type="number" required min={14} max={100} value={age} onChange={(e) => setAge(e.target.value)} />
         </label>
         <label>
-          Рост, см
+          {t('questionnaire.height')}
           <input
             type="number"
             required
@@ -129,7 +129,7 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
           />
         </label>
         <label>
-          Вес, кг
+          {t('questionnaire.weight')}
           <input
             type="number"
             required
@@ -143,22 +143,22 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
       </div>
 
       <label>
-        Уровень активности
+        {t('questionnaire.activity')}
         <select value={activityLevel} onChange={(e) => setActivityLevel(e.target.value as ActivityLevel)}>
-          {ACTIVITY_OPTIONS.map((o) => (
-            <option key={o.value} value={o.value}>
-              {o.label}
+          {ACTIVITY_VALUES.map((v) => (
+            <option key={v} value={v}>
+              {t(`options.activity.${v}`)}
             </option>
           ))}
         </select>
       </label>
 
       <fieldset>
-        <legend>Дни тренировок</legend>
+        <legend>{t('questionnaire.trainingDays')}</legend>
         <div className="chips chips-week">
-          {WEEKDAYS.map((label, i) => (
+          {t('options.weekdays', { returnObjects: true }).map((label, i) => (
             <Chip
-              key={label}
+              key={i}
               type="checkbox"
               name="trainingDays"
               checked={trainingDays.includes(i + 1)}
@@ -168,24 +168,24 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
             </Chip>
           ))}
         </div>
-        <span className="hint">Оставьте пустым, если не тренируетесь</span>
+        <span className="hint">{t('questionnaire.trainingDaysHint')}</span>
       </fieldset>
 
       <fieldset>
-        <legend>Цель</legend>
+        <legend>{t('questionnaire.goal')}</legend>
         <div className="chips">
-          {GOAL_OPTIONS.map((o) => (
-            <Chip key={o.value} type="radio" name="goal" checked={goal === o.value} onChange={() => setGoal(o.value)}>
-              {o.label}
+          {GOAL_VALUES.map((v) => (
+            <Chip key={v} type="radio" name="goal" checked={goal === v} onChange={() => setGoal(v)}>
+              {t(`options.goal.${v}`)}
             </Chip>
           ))}
         </div>
       </fieldset>
 
       <fieldset>
-        <legend>Приёмов пищи в день</legend>
+        <legend>{t('questionnaire.mealsPerDay')}</legend>
         <div className="chips">
-          {MEALS_OPTIONS.map((n) => (
+          {MEALS_PER_DAY_VALUES.map((n) => (
             <Chip key={n} type="radio" name="mealsPerDay" checked={mealsPerDay === n} onChange={() => setMealsPerDay(n)}>
               {n}
             </Chip>
@@ -194,11 +194,8 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
       </fieldset>
 
       <fieldset>
-        <legend>Не ем</legend>
-        <span className="hint notice">
-          Мы не учитываем диагнозы и пищевую аллергию. Если они у вас есть, обсудите рацион с врачом перед
-          использованием плана.
-        </span>
+        <legend>{t('questionnaire.excluded')}</legend>
+        <span className="hint notice">{t('questionnaire.excludedNotice')}</span>
         <div className="chips">
           {EXCLUSION_TAGS.map((tag) => (
             <Chip
@@ -208,12 +205,12 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
               checked={excludedTags.includes(tag)}
               onChange={() => setExcludedTags((tags) => toggle(tags, tag))}
             >
-              {capitalize(tag)}
+              {t(`options.exclusion.${tag}`)}
             </Chip>
           ))}
         </div>
         <input
-          placeholder="Другое, через запятую"
+          placeholder={t('questionnaire.excludedOther')}
           maxLength={500}
           value={excludedFreeText}
           onChange={(e) => setExcludedFreeText(e.target.value)}
@@ -221,29 +218,29 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
       </fieldset>
 
       <fieldset>
-        <legend>Время на готовку</legend>
+        <legend>{t('questionnaire.cookingTime')}</legend>
         <div className="chips">
-          {COOKING_OPTIONS.map((o) => (
+          {COOKING_VALUES.map((v) => (
             <Chip
-              key={o.value}
+              key={v}
               type="radio"
               name="cookingTime"
-              checked={cookingTime === o.value}
-              onChange={() => setCookingTime(o.value)}
+              checked={cookingTime === v}
+              onChange={() => setCookingTime(v)}
             >
-              {o.label}
+              {t(`options.cooking.${v}`)}
             </Chip>
           ))}
         </div>
       </fieldset>
 
       <label>
-        Бюджет в день, ₽
+        {t('questionnaire.budget')}
         <input
           type="number"
           min={0}
           step="10"
-          placeholder="Не ограничен"
+          placeholder={t('questionnaire.budgetPlaceholder')}
           value={budgetPerDay}
           onChange={(e) => setBudgetPerDay(e.target.value)}
         />
@@ -253,11 +250,8 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
         <label className="checkbox">
           <input type="checkbox" required checked={consentAgreed} onChange={(e) => setConsentAgreed(e.target.checked)} />
           <span>
-            Я согласен на обработку персональных данных в соответствии с{' '}
             {/* New tab, so the half-filled form isn't lost. */}
-            <Link to="/privacy" target="_blank">
-              политикой конфиденциальности
-            </Link>
+            <Trans i18nKey="questionnaire.consent" components={{ link: <Link to="/privacy" target="_blank" /> }} />
           </span>
         </label>
       )}
@@ -268,7 +262,7 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
         </p>
       )}
       <button type="submit" disabled={submitting}>
-        {submitting ? 'Сохранение…' : submitLabel}
+        {submitting ? t('questionnaire.saving') : (submitLabel ?? t('questionnaire.submit'))}
       </button>
     </form>
   )

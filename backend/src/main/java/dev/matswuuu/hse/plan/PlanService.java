@@ -9,6 +9,7 @@ import dev.matswuuu.hse.nutrition.NutritionProperties;
 import dev.matswuuu.hse.nutrition.NutritionTarget;
 import dev.matswuuu.hse.nutrition.NutritionTargetCalculator;
 import dev.matswuuu.hse.plan.dto.DayViewResponse;
+import dev.matswuuu.hse.dish.DishCatalog;
 import dev.matswuuu.hse.plan.dto.DishCardResponse;
 import dev.matswuuu.hse.plan.dto.MealSummaryResponse;
 import dev.matswuuu.hse.plan.dto.NutritionFacts;
@@ -59,6 +60,7 @@ public class PlanService {
     private final DemoMealPlanner demoPlanner;
     private final ObjectProvider<MealPlanner> planners;
     private final AnalyticsService analyticsService;
+    private final DishCatalog dishCatalog;
 
     public PlanService(
             MealPlanRepository planRepository,
@@ -71,7 +73,8 @@ public class PlanService {
             NutritionProperties properties,
             DemoMealPlanner demoPlanner,
             ObjectProvider<MealPlanner> planners,
-            AnalyticsService analyticsService) {
+            AnalyticsService analyticsService,
+            DishCatalog dishCatalog) {
         this.planRepository = planRepository;
         this.dayRepository = dayRepository;
         this.mealRepository = mealRepository;
@@ -83,6 +86,7 @@ public class PlanService {
         this.demoPlanner = demoPlanner;
         this.planners = planners;
         this.analyticsService = analyticsService;
+        this.dishCatalog = dishCatalog;
     }
 
     /**
@@ -485,7 +489,8 @@ public class PlanService {
                                 i.getGrams(),
                                 nutritionService.factsForEntities(List.of(i))))
                         .toList(),
-                List.copyOf(meal.getSteps()));
+                List.copyOf(meal.getSteps()),
+                dishCatalog.recipeUrls(meal.getDishName()));
     }
 
     private static double clamp(double value, double min, double max) {

@@ -61,6 +61,7 @@ export interface DishCard {
   facts: NutritionFacts
   ingredients: Ingredient[]
   steps: string[]
+  recipeUrls: string[]
 }
 
 export interface ShoppingList {

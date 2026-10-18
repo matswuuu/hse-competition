@@ -1,9 +1,10 @@
 import { useEffect, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import * as plansApi from '@/api/plans'
 import type { ShoppingList as ShoppingListData } from '@/api/plans'
 import { grams } from './format'
 
-// "Куплено" marks live in the browser only (§4.8); keyed by plan so a new plan starts clean.
+// "Bought" marks live in the browser only (§4.8); keyed by plan so a new plan starts clean.
 const storageKey = (planId: number) => `shopping-bought:${planId}`
 
 function loadBought(planId: number): Set<string> {
@@ -24,6 +25,7 @@ function saveBought(planId: number, bought: Set<string>) {
 
 /** Loads on mount; remount (via key) when the plan changes. */
 export default function ShoppingList({ planId }: { planId: number }) {
+  const { t } = useTranslation()
   const [list, setList] = useState<ShoppingListData | null>(null)
   const [error, setError] = useState(false)
   const [bought, setBought] = useState(() => loadBought(planId))
@@ -48,17 +50,15 @@ export default function ShoppingList({ planId }: { planId: number }) {
     })
   }
 
-  if (error) return <p className="form-error">Не удалось загрузить список покупок</p>
-  if (!list) return <p className="muted">Загрузка…</p>
+  if (error) return <p className="form-error">{t('shopping.loadFailed')}</p>
+  if (!list) return <p className="muted">{t('common.loading')}</p>
 
   const items = list.categories.flatMap((g) => g.items)
   const boughtCount = items.filter((i) => bought.has(i.productName)).length
 
   return (
     <>
-      <p className="muted">
-        Куплено {boughtCount} из {items.length}
-      </p>
+      <p className="muted">{t('shopping.bought', { bought: boughtCount, total: items.length })}</p>
       <div className="shopping-list">
         {list.categories.map((group) => (
           <section key={group.category}>

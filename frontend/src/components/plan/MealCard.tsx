@@ -1,8 +1,8 @@
 import { useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { ApiError } from '@/api/client'
 import * as plansApi from '@/api/plans'
 import type { DishCard, MealSummary } from '@/api/plans'
-import { MEAL_TYPE_LABELS } from '@/labels'
 import { grams, round } from './format'
 
 interface Props {
@@ -13,6 +13,7 @@ interface Props {
 }
 
 export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
+  const { t } = useTranslation()
   const [open, setOpen] = useState(false)
   const [card, setCard] = useState<DishCard | null>(null)
   const [busy, setBusy] = useState(false)
@@ -25,7 +26,7 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
       try {
         setCard(await plansApi.dish(meal.id))
       } catch {
-        setError('Не удалось загрузить рецепт')
+        setError(t('meal.recipeFailed'))
       }
     }
   }
@@ -37,7 +38,7 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
       await plansApi.setEaten(meal.id, !meal.eaten)
     } catch {
       onEatenChange(meal.eaten)
-      setError('Не удалось сохранить отметку')
+      setError(t('meal.eatenFailed'))
     }
   }
 
@@ -50,11 +51,7 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
       setOpen(false)
       onReplaced()
     } catch (err) {
-      setError(
-        err instanceof ApiError && err.status === 404
-          ? 'Не нашлось подходящей замены'
-          : 'Не удалось заменить блюдо',
-      )
+      setError(err instanceof ApiError && err.status === 404 ? t('meal.noReplacement') : t('meal.replaceFailed'))
     } finally {
       setBusy(false)
     }
@@ -63,15 +60,15 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
   return (
     <article className={`meal-card${meal.eaten ? ' eaten' : ''}`}>
       <div className="meal-main">
-        <label className="meal-check" title={meal.eaten ? 'Отметить как не съеденное' : 'Отметить как съеденное'}>
+        <label className="meal-check" title={meal.eaten ? t('meal.markNotEaten') : t('meal.markEaten')}>
           <input type="checkbox" checked={meal.eaten} onChange={toggleEaten} />
         </label>
         <button type="button" className="meal-summary" onClick={toggleOpen} aria-expanded={open}>
-          <span className="meal-type">{MEAL_TYPE_LABELS[meal.mealType]}</span>
+          <span className="meal-type">{t(`options.mealType.${meal.mealType}`)}</span>
           <span className="meal-name">{meal.dishName}</span>
           <span className="meal-meta">
-            {round(meal.facts.kcal)} ккал · Б {round(meal.facts.proteinG)} · Ж {round(meal.facts.fatG)} · У{' '}
-            {round(meal.facts.carbsG)} · {meal.cookingTimeMin} мин
+            {round(meal.facts.kcal)} {t('common.kcal')} · {t('common.p')} {round(meal.facts.proteinG)} · {t('common.f')}{' '}
+            {round(meal.facts.fatG)} · {t('common.c')} {round(meal.facts.carbsG)} · {meal.cookingTimeMin} {t('common.min')}
           </span>
         </button>
       </div>
@@ -84,10 +81,10 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
 
       {open && (
         <div className="meal-details">
-          {!card && !error && <p className="muted">Загрузка…</p>}
+          {!card && !error && <p className="muted">{t('common.loading')}</p>}
           {card && (
             <>
-              <h4>Ингредиенты</h4>
+              <h4>{t('meal.ingredients')}</h4>
               <ul className="ingredients">
                 {card.ingredients.map((ing) => (
                   <li key={ing.productName}>
@@ -98,7 +95,7 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
               </ul>
               {card.steps.length > 0 && (
                 <>
-                  <h4>Приготовление</h4>
+                  <h4>{t('meal.steps')}</h4>
                   <ol className="recipe-steps">
                     {card.steps.map((step, i) => (
                       <li key={i}>{step}</li>
@@ -106,10 +103,24 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
                   </ol>
                 </>
               )}
+              {card.recipeUrls.length > 0 && (
+                <>
+                  <h4>{t('meal.recipeLinks')}</h4>
+                  <ul className="recipe-links">
+                    {card.recipeUrls.map((url) => (
+                      <li key={url}>
+                        <a href={url} target="_blank" rel="noopener noreferrer">
+                          {new URL(url).hostname.replace(/^www\./, '')}
+                        </a>
+                      </li>
+                    ))}
+                  </ul>
+                </>
+              )}
             </>
           )}
           <button type="button" className="button button-secondary button-small" onClick={replace} disabled={busy}>
-            {busy ? 'Подбираем…' : 'Заменить блюдо'}
+            {busy ? t('meal.replacing') : t('meal.replace')}
           </button>
         </div>
       )}

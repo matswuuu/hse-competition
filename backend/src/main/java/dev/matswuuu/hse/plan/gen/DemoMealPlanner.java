@@ -1,5 +1,7 @@
 package dev.matswuuu.hse.plan.gen;
 
+import dev.matswuuu.hse.dish.DishCatalog;
+import dev.matswuuu.hse.dish.DishTemplate;
 import dev.matswuuu.hse.food.Product;
 import dev.matswuuu.hse.nutrition.NutritionProperties;
 import dev.matswuuu.hse.nutrition.NutritionTarget;
@@ -24,7 +26,7 @@ import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 /**
- * Deterministic code-only planner: template dishes + portion scaling to the
+ * Deterministic code-only planner: template dishes from the dish DB + portion scaling to the
  * target. Always available — the §4.3 fallback when the LLM API is unreachable,
  * and the source of the demo-account plan (§6).
  */
@@ -46,10 +48,13 @@ public class DemoMealPlanner implements MealPlanner {
 
     private final PlanNutritionService nutritionService;
     private final NutritionProperties properties;
+    private final DishCatalog dishCatalog;
 
-    public DemoMealPlanner(PlanNutritionService nutritionService, NutritionProperties properties) {
+    public DemoMealPlanner(
+            PlanNutritionService nutritionService, NutritionProperties properties, DishCatalog dishCatalog) {
         this.nutritionService = nutritionService;
         this.properties = properties;
+        this.dishCatalog = dishCatalog;
     }
 
     @Override
@@ -65,6 +70,7 @@ public class DemoMealPlanner implements MealPlanner {
     @Override
     public List<PlannedDay> plan(PlanContext context) {
         Map<String, Product> index = nutritionService.productIndex();
+        List<DishTemplate> templates = dishCatalog.templates();
         Set<String> exclusions = collectExclusions(context.questionnaire());
         boolean[] training = context.trainingDays();
         int maxMinutes = maxMinutes(context.questionnaire().getCookingTime());
@@ -84,7 +90,7 @@ public class DemoMealPlanner implements MealPlanner {
                         exclusions, maxMinutes, target.proteinG() >= 120
                                 && (slots[s] == MealType.LUNCH || slots[s] == MealType.DINNER),
                         recentBySlot.getOrDefault(slots[s], List.of()), pickedToday,
-                        context.bannedDishes(), index);
+                        context.bannedDishes(), templates, index);
                 meals.add(picked);
                 pickedToday.add(picked.dishName());
                 List<String> recent = recentBySlot.computeIfAbsent(slots[s], k -> new ArrayList<>());
@@ -278,9 +284,9 @@ public class DemoMealPlanner implements MealPlanner {
     public List<PlannedMeal> alternatives(
             MealType slot, Set<String> exclusions, int maxMinutes, String exceptDish) {
         Map<String, Product> index = nutritionService.productIndex();
-        List<DishTemplate> pool = TEMPLATES.stream()
+        List<DishTemplate> pool = dishCatalog.templates().stream()
                 .filter(t -> fitsSlot(t, slot))
-                .filter(t -> !t.dishName.equals(exceptDish))
+                .filter(t -> !t.dishName().equals(exceptDish))
                 .toList();
         List<DishTemplate> ok = pool.stream()
                 .filter(t -> !violates(t, exclusions, index))
@@ -288,7 +294,7 @@ public class DemoMealPlanner implements MealPlanner {
         if (ok.isEmpty()) {
             throw new PlannerException("No replacement dish fits the exclusions");
         }
-        List<DishTemplate> timely = ok.stream().filter(t -> t.minutes <= maxMinutes).toList();
+        List<DishTemplate> timely = ok.stream().filter(t -> t.minutes() <= maxMinutes).toList();
         List<DishTemplate> source = timely.isEmpty() ? ok : timely;
         return source.stream().map(t -> t.toMeal(slot)).toList();
     }
@@ -302,8 +308,8 @@ public class DemoMealPlanner implements MealPlanner {
             MealType slot, NutritionFacts target, List<PlannedMeal> picked,
             int day, int slotIdx, int round, Set<String> exclusions, int maxMinutes,
             boolean requireAnimalProtein, List<String> recentlyUsed, Set<String> pickedToday,
-            Set<String> banned, Map<String, Product> index) {
-        List<DishTemplate> pool = TEMPLATES.stream()
+            Set<String> banned, List<DishTemplate> templates, Map<String, Product> index) {
+        List<DishTemplate> pool = templates.stream()
                 .filter(t -> fitsSlot(t, slot))
                 .filter(t -> !violates(t, exclusions, index))
                 .toList();
@@ -320,14 +326,14 @@ public class DemoMealPlanner implements MealPlanner {
         }
         // Cooking-time limit is a hard preference: retry-round bans apply only
         // within the timely set and can never force slower dishes.
-        List<DishTemplate> timely = pool.stream().filter(t -> t.minutes <= maxMinutes).toList();
+        List<DishTemplate> timely = pool.stream().filter(t -> t.minutes() <= maxMinutes).toList();
         List<DishTemplate> source;
         if (timely.isEmpty()) {
             log.warn("No dish within {} min for slot {}, ignoring time limit", maxMinutes, slot);
             source = pool;
         } else {
             List<DishTemplate> timelyUnbanned =
-                    timely.stream().filter(t -> !banned.contains(t.dishName)).toList();
+                    timely.stream().filter(t -> !banned.contains(t.dishName())).toList();
             source = timelyUnbanned.isEmpty() ? timely : timelyUnbanned;
         }
         NutritionFacts running = totalOf(picked, index);
@@ -335,11 +341,11 @@ public class DemoMealPlanner implements MealPlanner {
         ranked.sort(Comparator.comparingDouble(t ->
                 shareDistance(running.add(nutritionService.factsFor(t.ingredients(), index)), target)));
         List<DishTemplate> fresh = ranked.stream()
-                .filter(t -> !recentlyUsed.contains(t.dishName))
-                .filter(t -> !pickedToday.contains(t.dishName))
+                .filter(t -> !recentlyUsed.contains(t.dishName()))
+                .filter(t -> !pickedToday.contains(t.dishName()))
                 .toList();
         List<DishTemplate> choice = fresh.isEmpty()
-                ? ranked.stream().filter(t -> !pickedToday.contains(t.dishName)).toList()
+                ? ranked.stream().filter(t -> !pickedToday.contains(t.dishName())).toList()
                 : fresh;
         if (choice.isEmpty()) {
             choice = ranked;
@@ -372,10 +378,10 @@ public class DemoMealPlanner implements MealPlanner {
     }
 
     private static boolean fitsSlot(DishTemplate template, MealType slot) {
-        if (template.slots.contains(slot)) {
+        if (template.slots().contains(slot)) {
             return true;
         }
-        return (slot == MealType.SNACK || slot == MealType.SNACK_2) && template.slots.contains(MealType.SNACK);
+        return (slot == MealType.SNACK || slot == MealType.SNACK_2) && template.slots().contains(MealType.SNACK);
     }
 
     /**
@@ -383,7 +389,7 @@ public class DemoMealPlanner implements MealPlanner {
      * DB).
      */
     private static boolean hasAnimalProtein(DishTemplate template, Map<String, Product> index) {
-        for (PlannedIngredient ingredient : template.ingredients) {
+        for (PlannedIngredient ingredient : template.ingredients()) {
             Product product = index.get(ingredient.productName().strip().toLowerCase());
             if (product != null
                     && (product.getCategory().equals("мясо")
@@ -400,8 +406,8 @@ public class DemoMealPlanner implements MealPlanner {
             return false;
         }
         List<String> texts = new ArrayList<>();
-        texts.add(template.dishName);
-        for (PlannedIngredient ingredient : template.ingredients) {
+        texts.add(template.dishName());
+        for (PlannedIngredient ingredient : template.ingredients()) {
             texts.add(ingredient.productName());
             Product product = index.get(ingredient.productName().strip().toLowerCase());
             if (product == null) {
@@ -451,435 +457,5 @@ public class DemoMealPlanner implements MealPlanner {
             case ANY -> Integer.MAX_VALUE;
         };
     }
-
-    private record DishTemplate(
-            String dishName, Set<MealType> slots, int minutes,
-            List<PlannedIngredient> ingredients,
-            List<String> steps) {
-
-        DishTemplate(String dishName, MealType slot, int minutes, List<PlannedIngredient> ingredients,
-                     List<String> steps) {
-            this(dishName, Set.of(slot), minutes, ingredients, steps);
-        }
-
-        PlannedMeal toMeal(MealType slot) {
-            return new PlannedMeal(slot, dishName, minutes, ingredients, steps);
-        }
-
-    }
-
-    private static PlannedIngredient ing(String product, double grams) {
-        return new PlannedIngredient(product, grams);
-    }
-
-    private static final List<DishTemplate> TEMPLATES = List.of(
-            new DishTemplate(
-                    "Овсянка с бананом и арахисовой пастой",
-                    MealType.BREAKFAST,
-                    15,
-                    List.of(
-                            ing("Овсянка (сухая)", 60),
-                            ing("Молоко 3.2%", 150),
-                            ing("Банан", 100),
-                            ing("Арахисовая паста", 20),
-                            ing("Мёд", 10)),
-                    List.of(
-                            "Залейте овсянку молоком и варите 7–10 минут до готовности.",
-                            "Нарежьте банан кружочками.",
-                            "Выложите кашу в тарелку, добавьте банан, арахисовую пасту и мёд.")),
-            new DishTemplate(
-                    "Омлет с овощами и хлебом",
-                    MealType.BREAKFAST,
-                    15,
-                    List.of(
-                            ing("Яйцо куриное", 150),
-                            ing("Молоко 3.2%", 50),
-                            ing("Помидор", 100),
-                            ing("Перец болгарский", 50),
-                            ing("Масло подсолнечное", 5),
-                            ing("Хлеб цельнозерновой", 60)),
-                    List.of(
-                            "Взбейте яйца с молоком и солью.",
-                            "Нарежьте овощи, обжарьте 2–3 минуты на масле.",
-                            "Залейте овощи яичной смесью, готовьте под крышкой 5 минут.",
-                            "Подавайте с хлебом.")),
-            new DishTemplate(
-                    "Творог с ягодами и мёдом",
-                    MealType.BREAKFAST,
-                    10,
-                    List.of(
-                            ing("Творог 5%", 200), ing("Клубника", 100), ing("Мёд", 15), ing("Семена чиа", 10)),
-                    List.of(
-                            "Выложите творог в тарелку.",
-                            "Добавьте ягоды, мёд и семена чиа, перемешайте.")),
-            new DishTemplate(
-                    "Гречка с молоком и бананом",
-                    MealType.BREAKFAST,
-                    20,
-                    List.of(ing("Гречка (сухая)", 60), ing("Молоко 3.2%", 200), ing("Банан", 80)),
-                    List.of(
-                            "Отварите гречку в воде 15 минут.",
-                            "Слейте воду, добавьте горячее молоко и нарезанный банан.")),
-            new DishTemplate(
-                    "Яичница с индейкой и овощами",
-                    MealType.BREAKFAST,
-                    15,
-                    List.of(
-                            ing("Яйцо куриное", 100),
-                            ing("Индейка (филе)", 80),
-                            ing("Помидор", 100),
-                            ing("Масло подсолнечное", 5),
-                            ing("Хлеб ржаной", 40)),
-                    List.of(
-                            "Нарежьте индейку полосками, обжарьте 5 минут.",
-                            "Добавьте помидор, через 2 минуты разбейте яйца.",
-                            "Готовьте 4–5 минут, подавайте с хлебом.")),
-            new DishTemplate(
-                    "Куриная грудка с рисом и овощами",
-                    MealType.LUNCH,
-                    35,
-                    List.of(
-                            ing("Куриная грудка (филе)", 150),
-                            ing("Рис белый (сухой)", 80),
-                            ing("Огурец", 100),
-                            ing("Помидор", 100),
-                            ing("Масло оливковое", 10)),
-                    List.of(
-                            "Отварите рис 20 минут.",
-                            "Грудку посолите, обжарьте или запеките 20–25 минут.",
-                            "Нарежьте овощи, заправьте маслом, подавайте с рисом и грудкой.")),
-            new DishTemplate(
-                    "Гречка с говядиной",
-                    MealType.LUNCH,
-                    40,
-                    List.of(
-                            ing("Гречка (сухая)", 80),
-                            ing("Говядина постная", 150),
-                            ing("Морковь", 50),
-                            ing("Лук репчатый", 50),
-                            ing("Масло подсолнечное", 5)),
-                    List.of(
-                            "Отварите гречку 15–18 минут.",
-                            "Говядину нарежьте, тушите с луком и морковью 25 минут.",
-                            "Подавайте мясо с гречкой.")),
-            new DishTemplate(
-                    "Макароны с индейкой в томатном соусе",
-                    MealType.LUNCH,
-                    30,
-                    List.of(
-                            ing("Макароны твёрдых сортов (сухие)", 90),
-                            ing("Индейка (филе)", 130),
-                            ing("Томатная паста", 30),
-                            ing("Лук репчатый", 40),
-                            ing("Масло подсолнечное", 5),
-                            ing("Пармезан", 15)),
-                    List.of(
-                            "Отварите макароны до готовности.",
-                            "Обжарьте индейку с луком 8 минут, добавьте томатную пасту и 100 мл воды.",
-                            "Тушите 10 минут, смешайте с макаронами, посыпьте пармезаном.")),
-            new DishTemplate(
-                    "Треска с картофелем",
-                    MealType.LUNCH,
-                    30,
-                    List.of(
-                            ing("Треска", 180),
-                            ing("Картофель", 250),
-                            ing("Морковь", 50),
-                            ing("Масло подсолнечное", 10),
-                            ing("Лимон", 10)),
-                    List.of(
-                            "Отварите картофель 20 минут.",
-                            "Треску запеките с морковью 15 минут при 180°C.",
-                            "Подавайте с лимоном.")),
-            new DishTemplate(
-                    "Булгур с куриным бедром",
-                    MealType.LUNCH,
-                    40,
-                    List.of(
-                            ing("Булгур", 80),
-                            ing("Куриное бедро без кожи", 150),
-                            ing("Перец болгарский", 80),
-                            ing("Масло подсолнечное", 5)),
-                    List.of(
-                            "Залейте булгур кипятком 1:2, оставьте под крышкой 20 минут.",
-                            "Бедро запеките 30 минут при 190°C.",
-                            "Подавайте с нарезанным перцем.")),
-            new DishTemplate(
-                    "Лосось с овощами",
-                    MealType.DINNER,
-                    25,
-                    List.of(
-                            ing("Лосось", 150),
-                            ing("Брокколи", 150),
-                            ing("Морковь", 50),
-                            ing("Масло оливковое", 5),
-                            ing("Лимон", 10)),
-                    List.of(
-                            "Запеките лосось 15–18 минут при 190°C.",
-                            "Брокколи и морковь отварите на пару 7 минут.",
-                            "Сбрызните маслом и лимоном.")),
-            new DishTemplate(
-                    "Салат с тунцом",
-                    Set.of(MealType.LUNCH, MealType.DINNER),
-                    15,
-                    List.of(
-                            ing("Тунец консервированный в воде", 120),
-                            ing("Яйцо куриное", 50),
-                            ing("Огурец", 100),
-                            ing("Салат листовой", 50),
-                            ing("Масло оливковое", 10),
-                            ing("Хлеб цельнозерновой", 40)),
-                    List.of(
-                            "Отварите яйцо вкрутую (9 минут), нарежьте.",
-                            "Смешайте тунец, овощи и яйцо, заправьте маслом.",
-                            "Подавайте с хлебом.")),
-            new DishTemplate(
-                    "Куриная грудка с киноа",
-                    Set.of(MealType.LUNCH, MealType.DINNER),
-                    30,
-                    List.of(
-                            ing("Куриная грудка (филе)", 130),
-                            ing("Киноа", 70),
-                            ing("Шпинат", 50),
-                            ing("Помидор", 80),
-                            ing("Масло оливковое", 5)),
-                    List.of(
-                            "Отварите киноа 15 минут.",
-                            "Грудку обжарьте по 6 минут с каждой стороны.",
-                            "Подавайте со шпинатом и помидором.")),
-            new DishTemplate(
-                    "Омлет с творогом и зеленью",
-                    MealType.DINNER,
-                    15,
-                    List.of(
-                            ing("Яйцо куриное", 100),
-                            ing("Творог 5%", 100),
-                            ing("Шпинат", 40),
-                            ing("Хлеб ржаной", 40)),
-                    List.of(
-                            "Взбейте яйца, смешайте с творогом и шпинатом.",
-                            "Готовьте на сковороде под крышкой 6–7 минут.",
-                            "Подавайте с хлебом.")),
-            new DishTemplate(
-                    "Индейка с бататом",
-                    Set.of(MealType.LUNCH, MealType.DINNER),
-                    35,
-                    List.of(
-                            ing("Индейка (филе)", 150),
-                            ing("Батат", 200),
-                            ing("Фасоль стручковая", 100),
-                            ing("Масло подсолнечное", 5)),
-                    List.of(
-                            "Запеките батат дольками 25 минут при 190°C.",
-                            "Индейку обжарьте 10–12 минут.",
-                            "Фасоль отварите 5 минут, подавайте вместе.")),
-            new DishTemplate(
-                    "Греческий йогурт с орехами и яблоком",
-                    MealType.SNACK,
-                    5,
-                    List.of(
-                            ing("Йогурт греческий 2%", 200),
-                            ing("Яблоко", 120),
-                            ing("Грецкий орех", 20),
-                            ing("Мёд", 10)),
-                    List.of(
-                            "Нарежьте яблоко.",
-                            "Смешайте йогурт с яблоком, добавьте орехи и мёд.")),
-            new DishTemplate(
-                    "Творог с бананом",
-                    MealType.SNACK,
-                    5,
-                    List.of(ing("Творог 0%", 150), ing("Банан", 100), ing("Какао-порошок", 5)),
-                    List.of("Смешайте творог с нарезанным бананом, посыпьте какао.")),
-            new DishTemplate(
-                    "Бутерброд с индейкой",
-                    MealType.SNACK,
-                    10,
-                    List.of(
-                            ing("Хлеб цельнозерновой", 60),
-                            ing("Индейка (филе)", 60),
-                            ing("Огурец", 50),
-                            ing("Салат листовой", 20)),
-                    List.of(
-                            "Отварите или запеките индейку заранее.",
-                            "Соберите бутерброд: хлеб, индейка, огурец, салат.")),
-            new DishTemplate(
-                    "Кефир с бананом и льном",
-                    MealType.SNACK,
-                    5,
-                    List.of(ing("Кефир 2.5%", 250), ing("Банан", 80), ing("Семена льна", 10)),
-                    List.of("Взбейте кефир с бананом в блендере, добавьте семена льна.")),
-            new DishTemplate(
-                    "Плов с курицей",
-                    MealType.LUNCH,
-                    40,
-                    List.of(
-                            ing("Куриное бедро без кожи", 130),
-                            ing("Рис белый (сухой)", 90),
-                            ing("Морковь", 60),
-                            ing("Лук репчатый", 40),
-                            ing("Масло подсолнечное", 10)),
-                    List.of(
-                            "Обжарьте курицу с луком и морковью 8 минут.",
-                            "Добавьте рис и 200 мл воды, тушите под крышкой 20 минут.")),
-            new DishTemplate(
-                    "Паста с курицей и овощами",
-                    MealType.LUNCH,
-                    25,
-                    List.of(
-                            ing("Макароны твёрдых сортов (сухие)", 100),
-                            ing("Куриная грудка (филе)", 120),
-                            ing("Перец болгарский", 80),
-                            ing("Томатная паста", 20),
-                            ing("Масло подсолнечное", 5),
-                            ing("Пармезан", 10)),
-                    List.of(
-                            "Отварите макароны.",
-                            "Обжарьте грудку с перцем 8 минут, добавьте томатную пасту.",
-                            "Смешайте с макаронами, посыпьте пармезаном.")),
-            new DishTemplate(
-                    "Булгур с нутом",
-                    MealType.LUNCH,
-                    25,
-                    List.of(
-                            ing("Булгур", 90),
-                            ing("Нут (сухой)", 60),
-                            ing("Морковь", 50),
-                            ing("Масло оливковое", 10),
-                            ing("Лимон", 10)),
-                    List.of(
-                            "Нут замочите на ночь и отварите 40 минут (или возьмите готовый).",
-                            "Булгур залейте кипятком на 20 минут.",
-                            "Смешайте с нутом и морковью, заправьте маслом и лимоном.")),
-            new DishTemplate(
-                    "Рис с индейкой и кукурузой",
-                    Set.of(MealType.LUNCH, MealType.DINNER),
-                    30,
-                    List.of(
-                            ing("Рис белый (сухой)", 80),
-                            ing("Индейка (филе)", 130),
-                            ing("Кукуруза", 100),
-                            ing("Огурец", 80),
-                            ing("Масло подсолнечное", 5)),
-                    List.of(
-                            "Отварите рис 20 минут.",
-                            "Индейку обжарьте 10–12 минут.",
-                            "Подавайте с кукурузой и огурцом.")),
-            new DishTemplate(
-                    "Паста с тунцом",
-                    Set.of(MealType.LUNCH, MealType.DINNER),
-                    20,
-                    List.of(
-                            ing("Макароны твёрдых сортов (сухие)", 90),
-                            ing("Тунец консервированный в воде", 100),
-                            ing("Помидор", 100),
-                            ing("Масло оливковое", 10),
-                            ing("Пармезан", 10)),
-                    List.of(
-                            "Отварите макароны.",
-                            "Смешайте с тунцом и нарезанным помидором.",
-                            "Заправьте маслом, посыпьте пармезаном.")),
-            new DishTemplate(
-                    "Пшённая каша с тыквой",
-                    MealType.BREAKFAST,
-                    25,
-                    List.of(
-                            ing("Пшено", 70), ing("Тыква", 150), ing("Молоко 3.2%", 150), ing("Мёд", 10)),
-                    List.of(
-                            "Отварите пшено 15 минут.",
-                            "Тыкву нарежьте кубиками, добавьте к пшену с молоком.",
-                            "Варите ещё 8 минут, добавьте мёд.")),
-            new DishTemplate(
-                    "Бутерброд с арахисовой пастой и бананом",
-                    MealType.SNACK,
-                    5,
-                    List.of(
-                            ing("Хлеб цельнозерновой", 70), ing("Арахисовая паста", 30), ing("Банан", 80)),
-                    List.of(
-                            "Намажьте хлеб арахисовой пастой.",
-                            "Выложите сверху кружочки банана.")),
-            new DishTemplate(
-                    "Рисовая каша с яблоком",
-                    MealType.BREAKFAST,
-                    25,
-                    List.of(
-                            ing("Рис белый (сухой)", 70),
-                            ing("Молоко 3.2%", 150),
-                            ing("Яблоко", 100),
-                            ing("Мёд", 10)),
-                    List.of(
-                            "Отварите рис в молоке 20 минут.",
-                            "Добавьте нарезанное яблоко и мёд.")),
-            new DishTemplate(
-                    "Гречка с грибами",
-                    MealType.DINNER,
-                    30,
-                    List.of(
-                            ing("Гречка (сухая)", 80),
-                            ing("Шампиньоны", 150),
-                            ing("Лук репчатый", 40),
-                            ing("Масло подсолнечное", 10),
-                            ing("Сметана 15%", 30)),
-                    List.of(
-                            "Отварите гречку 15–18 минут.",
-                            "Обжарьте грибы с луком 10 минут.",
-                            "Подавайте гречку с грибами и сметаной.")),
-            new DishTemplate(
-                    "Овсяное печенье с кефиром",
-                    MealType.SNACK,
-                    5,
-                    List.of(ing("Печенье овсяное", 60), ing("Кефир 2.5%", 200)),
-                    List.of("Подавайте печенье с холодным кефиром.")),
-            new DishTemplate(
-                    "Креветки с овощами",
-                    Set.of(MealType.LUNCH, MealType.DINNER),
-                    20,
-                    List.of(
-                            ing("Креветки", 150),
-                            ing("Перец болгарский", 100),
-                            ing("Кабачок", 100),
-                            ing("Масло оливковое", 5)),
-                    List.of(
-                            "Обжарьте овощи 5 минут.",
-                            "Добавьте креветки, готовьте ещё 4–5 минут.")),
-            new DishTemplate(
-                    "Творог 0% с клубникой",
-                    MealType.SNACK,
-                    5,
-                    List.of(ing("Творог 0%", 200), ing("Клубника", 100)),
-                    List.of("Смешайте творог с ягодами.")),
-            new DishTemplate(
-                    "Омлет из белков с овощами",
-                    MealType.BREAKFAST,
-                    15,
-                    List.of(
-                            ing("Белок яйца", 200),
-                            ing("Помидор", 80),
-                            ing("Шпинат", 30),
-                            ing("Хлеб ржаной", 30)),
-                    List.of(
-                            "Взбейте белки с солью.",
-                            "Добавьте овощи, готовьте под крышкой 5–6 минут.",
-                            "Подавайте с хлебом.")),
-            new DishTemplate(
-                    "Паста с овощами и маслом",
-                    Set.of(MealType.LUNCH, MealType.DINNER),
-                    20,
-                    List.of(
-                            ing("Макароны твёрдых сортов (сухие)", 120),
-                            ing("Перец болгарский", 80),
-                            ing("Кабачок", 80),
-                            ing("Масло оливковое", 15),
-                            ing("Пармезан", 10)),
-                    List.of(
-                            "Отварите макароны.",
-                            "Овощи обжарьте на масле 6–7 минут.",
-                            "Смешайте с макаронами, посыпьте пармезаном.")),
-            new DishTemplate(
-                    "Орехи с бананом",
-                    MealType.SNACK,
-                    5,
-                    List.of(ing("Миндаль", 30), ing("Банан", 120)),
-                    List.of("Выложите миндаль и нарезанный банан на тарелку.")));
 
 }

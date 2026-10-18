@@ -5,6 +5,13 @@
     <link rel="icon" type="image/svg+xml" href="/favicon.svg" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
     <title>HSE Competition</title>
+    <script>
+      // Apply the saved theme before first paint (see src/theme.ts).
+      try {
+        const theme = localStorage.getItem('theme')
+        if (theme === 'light' || theme === 'dark') document.documentElement.setAttribute('data-theme', theme)
+      } catch {}
+    </script>
   </head>
   <body>
     <div id="root"></div>

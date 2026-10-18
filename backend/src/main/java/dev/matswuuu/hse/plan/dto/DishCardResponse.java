@@ -12,7 +12,8 @@ public record DishCardResponse(
         boolean eaten,
         NutritionFacts facts,
         List<IngredientResponse> ingredients,
-        List<String> steps) {
+        List<String> steps,
+        List<String> recipeUrls) {
 
     public record IngredientResponse(String productName, String category, double grams, NutritionFacts facts) {}
 }

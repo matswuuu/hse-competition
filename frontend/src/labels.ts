@@ -1,40 +1,19 @@
 import type { ActivityLevel, CookingTime, Goal, Sex } from '@/api/questionnaire'
-import type { MealType } from '@/api/plans'
 
-export const SEX_OPTIONS: { value: Sex; label: string }[] = [
-  { value: 'MALE', label: 'Мужской' },
-  { value: 'FEMALE', label: 'Женский' },
-]
+// Display labels live in the i18n dictionaries under `options.*`, keyed by these values.
 
-export const ACTIVITY_OPTIONS: { value: ActivityLevel; label: string }[] = [
-  { value: 'SEDENTARY', label: 'Сидячий образ жизни' },
-  { value: 'LIGHT', label: 'Лёгкая активность' },
-  { value: 'MODERATE', label: 'Умеренная активность' },
-  { value: 'ACTIVE', label: 'Высокая активность' },
-  { value: 'VERY_ACTIVE', label: 'Очень высокая активность' },
-]
+export const SEX_VALUES: Sex[] = ['MALE', 'FEMALE']
 
-export const GOAL_OPTIONS: { value: Goal; label: string }[] = [
-  { value: 'LOSE', label: 'Похудеть' },
-  { value: 'MAINTAIN', label: 'Поддерживать вес' },
-  { value: 'GAIN', label: 'Набрать массу' },
-]
+export const ACTIVITY_VALUES: ActivityLevel[] = ['SEDENTARY', 'LIGHT', 'MODERATE', 'ACTIVE', 'VERY_ACTIVE']
 
-export const COOKING_OPTIONS: { value: CookingTime; label: string }[] = [
-  { value: 'UP_TO_20', label: 'До 20 минут' },
-  { value: 'UP_TO_40', label: 'До 40 минут' },
-  { value: 'ANY', label: 'Не важно' },
-]
+export const GOAL_VALUES: Goal[] = ['LOSE', 'MAINTAIN', 'GAIN']
 
-export const WEEKDAYS = ['Пн', 'Вт', 'Ср', 'Чт', 'Пт', 'Сб', 'Вс']
+export const COOKING_VALUES: CookingTime[] = ['UP_TO_20', 'UP_TO_40', 'ANY']
 
-export const MEAL_TYPE_LABELS: Record<MealType, string> = {
-  BREAKFAST: 'Завтрак',
-  SNACK: 'Перекус',
-  LUNCH: 'Обед',
-  SNACK_2: 'Второй перекус',
-  DINNER: 'Ужин',
-}
+export const MEALS_PER_DAY_VALUES = [3, 4, 5]
 
-export const labelOf = <T>(options: { value: T; label: string }[], value: T) =>
-  options.find((o) => o.value === value)?.label ?? String(value)
+// Lowercase Russian: the backend normalizes tags, so saved values come back this way.
+export const EXCLUSION_TAGS = ['свинина', 'говядина', 'рыба', 'морепродукты', 'молоко', 'яйца', 'орехи', 'грибы'] as const
+export type ExclusionTag = (typeof EXCLUSION_TAGS)[number]
+
+export const isExclusionTag = (tag: string): tag is ExclusionTag => (EXCLUSION_TAGS as readonly string[]).includes(tag)

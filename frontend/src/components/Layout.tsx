@@ -1,69 +1,32 @@
-import { useEffect, useState } from 'react'
-import { Link, NavLink, Outlet, useLocation } from 'react-router'
+import { useTranslation } from 'react-i18next'
+import { Link, NavLink, Outlet } from 'react-router'
 import { useAuth } from '@/auth/context'
 import ProductSource from '@/components/ProductSource'
 
 const YEAR = new Date().getFullYear()
 
 export default function Layout() {
-  const { user, logout } = useAuth()
-  const { pathname } = useLocation()
-  // Mobile menu only; on wide screens the nav is always visible.
-  // Remembers the page it was opened on, so navigating closes it.
-  const [menuPath, setMenuPath] = useState<string | null>(null)
-  const menuOpen = menuPath === pathname
-  const setMenuOpen = (open: boolean) => setMenuPath(open ? pathname : null)
-
-  useEffect(() => {
-    if (!menuOpen) return
-    const onKey = (e: KeyboardEvent) => e.key === 'Escape' && setMenuPath(null)
-    window.addEventListener('keydown', onKey)
-    return () => window.removeEventListener('keydown', onKey)
-  }, [menuOpen])
+  const { user } = useAuth()
+  const { t } = useTranslation()
 
   return (
     <div className="layout">
       <header className="header">
         <NavLink to="/" className="logo">
-          HSE Competition
+          {t('common.appName')}
         </NavLink>
-        <button
-          type="button"
-          className={`menu-toggle${menuOpen ? ' open' : ''}`}
-          aria-label={menuOpen ? 'Закрыть меню' : 'Открыть меню'}
-          aria-expanded={menuOpen}
-          aria-controls="main-nav"
-          onClick={() => setMenuOpen(!menuOpen)}
-        >
-          <span />
-          <span />
-          <span />
-        </button>
-        <nav id="main-nav" className={`nav${menuOpen ? ' open' : ''}`}>
-          <NavLink to="/" end>
-            Главная
-          </NavLink>
+        <nav className="nav">
           {user ? (
-            <>
-              <NavLink to="/settings">Настройки</NavLink>
-              <NavLink to="/profile" className="nav-user">
-                {user.username}
-              </NavLink>
-              <button
-                type="button"
-                className="link-button"
-                onClick={() => {
-                  setMenuOpen(false)
-                  logout()
-                }}
-              >
-                Выйти
-              </button>
-            </>
+            <NavLink to="/profile" className="nav-user">
+              <span className="nav-avatar" aria-hidden>
+                {user.username.charAt(0).toUpperCase()}
+              </span>
+              <span className="nav-username">{user.username}</span>
+            </NavLink>
           ) : (
             <>
-              <NavLink to="/login">Вход</NavLink>
-              <NavLink to="/register">Регистрация</NavLink>
+              <NavLink to="/login">{t('layout.login')}</NavLink>
+              <NavLink to="/register">{t('layout.register')}</NavLink>
             </>
           )}
         </nav>
@@ -72,13 +35,12 @@ export default function Layout() {
         <Outlet />
       </main>
       <footer className="footer">
-        <p className="footer-disclaimer">
-          Рекомендации носят информационный характер и не заменяют консультацию специалиста.
-        </p>
-        <span>© {YEAR} HSE Competition</span>
+        <span>
+          © {YEAR} {t('common.appName')}
+        </span>
         <nav className="footer-nav">
-          <Link to="/terms">Условия использования</Link>
-          <Link to="/privacy">Политика конфиденциальности</Link>
+          <Link to="/terms">{t('layout.terms')}</Link>
+          <Link to="/privacy">{t('layout.privacy')}</Link>
         </nav>
         <ProductSource />
       </footer>

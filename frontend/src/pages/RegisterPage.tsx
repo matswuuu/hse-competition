@@ -1,4 +1,5 @@
 import { useEffect, useState, type FormEvent } from 'react'
+import { Trans, useTranslation } from 'react-i18next'
 import { Link, Navigate, useLocation, useNavigate } from 'react-router'
 import { ApiError } from '@/api/client'
 import * as questionnaireApi from '@/api/questionnaire'
@@ -13,6 +14,7 @@ const PASSWORD_MAX = 100
 
 export default function RegisterPage() {
   const { user, register } = useAuth()
+  const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
@@ -34,11 +36,11 @@ export default function RegisterPage() {
   if (step === 'questionnaire') {
     return (
       <section className="auth auth-wide">
-        <p className="auth-step">Шаг 2 из 2</p>
-        <h1>Расскажите о себе</h1>
-        <p className="auth-lead">Это займёт пару минут — по ответам мы рассчитаем нормы и составим план питания.</p>
-        {/* Fresh users land on their profile to generate the first plan. */}
-        <QuestionnaireForm onSubmitted={() => navigate(from === '/' ? '/profile' : from, { replace: true })} />
+        <p className="auth-step">{t('auth.step', { n: 2 })}</p>
+        <h1>{t('auth.aboutTitle')}</h1>
+        <p className="auth-lead">{t('auth.aboutLead')}</p>
+        {/* Fresh users land on their plan to generate the first one. */}
+        <QuestionnaireForm onSubmitted={() => navigate(from === '/' ? '/profile/plan' : from, { replace: true })} />
       </section>
     )
   }
@@ -46,7 +48,7 @@ export default function RegisterPage() {
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
     if (password !== confirm) {
-      setError('Пароли не совпадают')
+      setError(t('auth.passwordMismatch'))
       return
     }
     setError(null)
@@ -58,10 +60,10 @@ export default function RegisterPage() {
     } catch (err) {
       setError(
         err instanceof ApiError && err.status === 409
-          ? 'Это имя пользователя уже занято'
+          ? t('auth.usernameTaken')
           : err instanceof ApiError && err.status === 400
-            ? 'Проверьте правильность заполнения полей'
-            : 'Не удалось зарегистрироваться. Попробуйте позже',
+            ? t('auth.checkFields')
+            : t('auth.registerFailed'),
       )
       setSubmitting(false)
     }
@@ -69,11 +71,11 @@ export default function RegisterPage() {
 
   return (
     <section className="auth">
-      <p className="auth-step">Шаг 1 из 2</p>
-      <h1>Регистрация</h1>
+      <p className="auth-step">{t('auth.step', { n: 1 })}</p>
+      <h1>{t('auth.registerTitle')}</h1>
       <form className="auth-form" onSubmit={handleSubmit}>
         <label>
-          Имя пользователя
+          {t('auth.username')}
           <input
             name="username"
             autoComplete="username"
@@ -83,12 +85,10 @@ export default function RegisterPage() {
             value={username}
             onChange={(e) => setUsername(e.target.value)}
           />
-          <span className="hint">
-            От {USERNAME_MIN} до {USERNAME_MAX} символов
-          </span>
+          <span className="hint">{t('auth.usernameHint', { min: USERNAME_MIN, max: USERNAME_MAX })}</span>
         </label>
         <label>
-          Пароль
+          {t('auth.password')}
           <input
             name="password"
             type="password"
@@ -99,10 +99,10 @@ export default function RegisterPage() {
             value={password}
             onChange={(e) => setPassword(e.target.value)}
           />
-          <span className="hint">Не менее {PASSWORD_MIN} символов</span>
+          <span className="hint">{t('auth.passwordHint', { min: PASSWORD_MIN })}</span>
         </label>
         <label>
-          Повторите пароль
+          {t('auth.confirmPassword')}
           <input
             name="confirm"
             type="password"
@@ -118,19 +118,16 @@ export default function RegisterPage() {
           </p>
         )}
         <p className="hint">
-          Продолжая, вы принимаете{' '}
-          <Link to="/terms" target="_blank">
-            условия использования
-          </Link>
+          <Trans i18nKey="auth.acceptTerms" components={{ link: <Link to="/terms" target="_blank" /> }} />
         </p>
         <button type="submit" disabled={submitting}>
-          {submitting ? 'Регистрация…' : 'Далее'}
+          {submitting ? t('auth.registering') : t('auth.next')}
         </button>
       </form>
       <p className="auth-switch">
-        Уже есть аккаунт?{' '}
+        {t('auth.haveAccount')}{' '}
         <Link to="/login" state={location.state}>
-          Войти
+          {t('auth.toLogin')}
         </Link>
       </p>
     </section>
