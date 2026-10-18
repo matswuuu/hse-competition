@@ -1,6 +1,15 @@
-import type {FormEvent, ReactNode} from 'react'
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import Checkbox from '@mui/material/Checkbox'
+import FormControlLabel from '@mui/material/FormControlLabel'
+import Link from '@mui/material/Link'
+import MenuItem from '@mui/material/MenuItem'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
+import type {FormEvent} from 'react'
 import {Trans, useTranslation} from 'react-i18next'
-import {Link} from 'react-router'
 import type {ActivityLevel, QuestionnaireResponse} from '@hse/shared/api/questionnaire'
 import {QUESTIONNAIRE_LIMITS as L, useQuestionnaireForm} from '@hse/shared/hooks/useQuestionnaireForm'
 import {
@@ -11,27 +20,7 @@ import {
     MEALS_PER_DAY_VALUES,
     SEX_VALUES,
 } from '@hse/shared/labels'
-
-function Chip({
-  type,
-  name,
-  checked,
-  onChange,
-  children,
-}: {
-  type: 'radio' | 'checkbox'
-  name: string
-  checked: boolean
-  onChange: () => void
-  children: ReactNode
-}) {
-  return (
-    <label className="chip">
-      <input type={type} name={name} checked={checked} onChange={onChange} />
-      <span>{children}</span>
-    </label>
-  )
-}
+import {ChoiceChip, FieldGroup} from '@/components/form'
 
 interface Props {
   /** Prefills the form, e.g. with the latest saved questionnaire. */
@@ -50,177 +39,176 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
   }
 
   return (
-    <form className="auth-form questionnaire" onSubmit={handleSubmit}>
-      <fieldset>
-        <legend>{t('questionnaire.sex')}</legend>
-        <div className="chips">
-          {SEX_VALUES.map((v) => (
-            <Chip key={v} type="radio" name="sex" checked={f.sex === v} onChange={() => f.setSex(v)}>
-              {t(`options.sex.${v}`)}
-            </Chip>
-          ))}
-        </div>
-      </fieldset>
-
-      <div className="field-row">
-        <label>
-          {t('questionnaire.age')}
-          <input type="number" required {...L.age} value={f.age} onChange={(e) => f.setAge(e.target.value)} />
-        </label>
-        <label>
-          {t('questionnaire.height')}
-          <input
-            type="number"
-            required
-            {...L.heightCm}
-            value={f.heightCm}
-            onChange={(e) => f.setHeightCm(e.target.value)}
+    <Stack component="form" spacing={3} onSubmit={handleSubmit}>
+      <FieldGroup label={t('questionnaire.sex')} role="radiogroup">
+        {SEX_VALUES.map((v) => (
+          <ChoiceChip
+            key={v}
+            type="radio"
+            checked={f.sex === v}
+            onChange={() => f.setSex(v)}
+            label={t(`options.sex.${v}`)}
           />
-        </label>
-        <label>
-          {t('questionnaire.weight')}
-          <input
-            type="number"
-            required
-            {...L.weightKg}
-            value={f.weightKg}
-            onChange={(e) => f.setWeightKg(e.target.value)}
-          />
-        </label>
-      </div>
+        ))}
+      </FieldGroup>
 
-      <label>
-        {t('questionnaire.activity')}
-        <select value={f.activityLevel} onChange={(e) => f.setActivityLevel(e.target.value as ActivityLevel)}>
-          {ACTIVITY_VALUES.map((v) => (
-            <option key={v} value={v}>
-              {t(`options.activity.${v}`)}
-            </option>
-          ))}
-        </select>
-      </label>
+      <Box sx={{ display: 'grid', gridTemplateColumns: 'repeat(3, minmax(0, 1fr))', gap: { xs: 1, sm: 2 } }}>
+        <TextField
+          type="number"
+          required
+          label={t('questionnaire.age')}
+          slotProps={{ htmlInput: L.age }}
+          value={f.age}
+          onChange={(e) => f.setAge(e.target.value)}
+        />
+        <TextField
+          type="number"
+          required
+          label={t('questionnaire.height')}
+          slotProps={{ htmlInput: L.heightCm }}
+          value={f.heightCm}
+          onChange={(e) => f.setHeightCm(e.target.value)}
+        />
+        <TextField
+          type="number"
+          required
+          label={t('questionnaire.weight')}
+          slotProps={{ htmlInput: L.weightKg }}
+          value={f.weightKg}
+          onChange={(e) => f.setWeightKg(e.target.value)}
+        />
+      </Box>
 
-      <fieldset>
-        <legend>{t('questionnaire.trainingDays')}</legend>
-        <div className="chips chips-week">
+      <TextField
+        select
+        label={t('questionnaire.activity')}
+        value={f.activityLevel}
+        onChange={(e) => f.setActivityLevel(e.target.value as ActivityLevel)}
+      >
+        {ACTIVITY_VALUES.map((v) => (
+          <MenuItem key={v} value={v}>
+            {t(`options.activity.${v}`)}
+          </MenuItem>
+        ))}
+      </TextField>
+
+      <FieldGroup
+        label={t('questionnaire.trainingDays')}
+        hint={
+          <Typography variant="caption" color="text.secondary">
+            {t('questionnaire.trainingDaysHint')}
+          </Typography>
+        }
+      >
+        <Box sx={{ width: '100%', display: 'grid', gridTemplateColumns: 'repeat(7, minmax(0, 1fr))', gap: 0.75 }}>
           {t('options.weekdays', { returnObjects: true }).map((label, i) => (
-            <Chip
+            <ChoiceChip
               key={i}
               type="checkbox"
-              name="trainingDays"
+              fullWidth
               checked={f.trainingDays.includes(i + 1)}
               onChange={() => f.toggleTrainingDay(i + 1)}
-            >
-              {label}
-            </Chip>
+              label={label}
+            />
           ))}
-        </div>
-        <span className="hint">{t('questionnaire.trainingDaysHint')}</span>
-      </fieldset>
+        </Box>
+      </FieldGroup>
 
-      <fieldset>
-        <legend>{t('questionnaire.goal')}</legend>
-        <div className="chips">
-          {GOAL_VALUES.map((v) => (
-            <Chip key={v} type="radio" name="goal" checked={f.goal === v} onChange={() => f.setGoal(v)}>
-              {t(`options.goal.${v}`)}
-            </Chip>
-          ))}
-        </div>
-      </fieldset>
+      <FieldGroup label={t('questionnaire.goal')} role="radiogroup">
+        {GOAL_VALUES.map((v) => (
+          <ChoiceChip
+            key={v}
+            type="radio"
+            checked={f.goal === v}
+            onChange={() => f.setGoal(v)}
+            label={t(`options.goal.${v}`)}
+          />
+        ))}
+      </FieldGroup>
 
-      <fieldset>
-        <legend>{t('questionnaire.mealsPerDay')}</legend>
-        <div className="chips">
-          {MEALS_PER_DAY_VALUES.map((n) => (
-            <Chip
-              key={n}
-              type="radio"
-              name="mealsPerDay"
-              checked={f.mealsPerDay === n}
-              onChange={() => f.setMealsPerDay(n)}
-            >
-              {n}
-            </Chip>
-          ))}
-        </div>
-      </fieldset>
+      <FieldGroup label={t('questionnaire.mealsPerDay')} role="radiogroup">
+        {MEALS_PER_DAY_VALUES.map((n) => (
+          <ChoiceChip key={n} type="radio" checked={f.mealsPerDay === n} onChange={() => f.setMealsPerDay(n)} label={n} />
+        ))}
+      </FieldGroup>
 
-      <fieldset>
-        <legend>{t('questionnaire.excluded')}</legend>
-        <span className="hint notice">{t('questionnaire.excludedNotice')}</span>
-        <div className="chips">
-          {EXCLUSION_TAGS.map((tag) => (
-            <Chip
-              key={tag}
-              type="checkbox"
-              name="excludedTags"
-              checked={f.excludedTags.includes(tag)}
-              onChange={() => f.toggleExcludedTag(tag)}
-            >
-              {t(`options.exclusion.${tag}`)}
-            </Chip>
-          ))}
-        </div>
-        <input
+      <FieldGroup
+        label={t('questionnaire.excluded')}
+        hint={
+          <Alert severity="warning" sx={{ py: 0, typography: 'caption' }}>
+            {t('questionnaire.excludedNotice')}
+          </Alert>
+        }
+      >
+        {EXCLUSION_TAGS.map((tag) => (
+          <ChoiceChip
+            key={tag}
+            type="checkbox"
+            checked={f.excludedTags.includes(tag)}
+            onChange={() => f.toggleExcludedTag(tag)}
+            label={t(`options.exclusion.${tag}`)}
+          />
+        ))}
+        <TextField
+          fullWidth
+          size="small"
+          sx={{ mt: 1 }}
           placeholder={t('questionnaire.excludedOther')}
-          {...L.excludedFreeText}
+          slotProps={{ htmlInput: L.excludedFreeText }}
           value={f.excludedFreeText}
           onChange={(e) => f.setExcludedFreeText(e.target.value)}
         />
-      </fieldset>
+      </FieldGroup>
 
-      <fieldset>
-        <legend>{t('questionnaire.cookingTime')}</legend>
-        <div className="chips">
-          {COOKING_VALUES.map((v) => (
-            <Chip
-              key={v}
-              type="radio"
-              name="cookingTime"
-              checked={f.cookingTime === v}
-              onChange={() => f.setCookingTime(v)}
-            >
-              {t(`options.cooking.${v}`)}
-            </Chip>
-          ))}
-        </div>
-      </fieldset>
+      <FieldGroup label={t('questionnaire.cookingTime')} role="radiogroup">
+        {COOKING_VALUES.map((v) => (
+          <ChoiceChip
+            key={v}
+            type="radio"
+            checked={f.cookingTime === v}
+            onChange={() => f.setCookingTime(v)}
+            label={t(`options.cooking.${v}`)}
+          />
+        ))}
+      </FieldGroup>
 
-      <label>
-        {t('questionnaire.budget')}
-        <input
-          type="number"
-          {...L.budgetPerDay}
-          placeholder={t('questionnaire.budgetPlaceholder')}
-          value={f.budgetPerDay}
-          onChange={(e) => f.setBudgetPerDay(e.target.value)}
-        />
-      </label>
+      <TextField
+        type="number"
+        label={t('questionnaire.budget')}
+        placeholder={t('questionnaire.budgetPlaceholder')}
+        slotProps={{ htmlInput: L.budgetPerDay, inputLabel: { shrink: true } }}
+        value={f.budgetPerDay}
+        onChange={(e) => f.setBudgetPerDay(e.target.value)}
+      />
 
       {f.askConsent && (
-        <label className="checkbox">
-          <input
-            type="checkbox"
-            required
-            checked={f.consentAgreed}
-            onChange={(e) => f.setConsentAgreed(e.target.checked)}
-          />
-          <span>
-            {/* New tab, so the half-filled form isn't lost. */}
-            <Trans i18nKey="questionnaire.consent" components={{ link: <Link to="/privacy" target="_blank" /> }} />
-          </span>
-        </label>
+        <FormControlLabel
+          sx={{ alignItems: 'flex-start' }}
+          control={
+            <Checkbox
+              required
+              checked={f.consentAgreed}
+              onChange={(e) => f.setConsentAgreed(e.target.checked)}
+              sx={{ mt: -1 }}
+            />
+          }
+          label={
+            <Typography variant="body2">
+              {/* New tab, so the half-filled form isn't lost. */}
+              <Trans i18nKey="questionnaire.consent" components={{ link: <Link href="/privacy" target="_blank" /> }} />
+            </Typography>
+          }
+        />
       )}
 
       {f.error && (
-        <p className="form-error" role="alert">
+        <Alert severity="error" role="alert">
           {f.error}
-        </p>
+        </Alert>
       )}
-      <button type="submit" disabled={f.submitting}>
+      <Button type="submit" variant="contained" size="large" disabled={f.submitting}>
         {f.submitting ? t('questionnaire.saving') : (submitLabel ?? t('questionnaire.submit'))}
-      </button>
-    </form>
+      </Button>
+    </Stack>
   )
 }

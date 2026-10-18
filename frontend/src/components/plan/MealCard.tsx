@@ -1,7 +1,26 @@
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
+import OpenInNewIcon from '@mui/icons-material/OpenInNew'
+import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
+import Alert from '@mui/material/Alert'
+import Box from '@mui/material/Box'
+import Button from '@mui/material/Button'
+import ButtonBase from '@mui/material/ButtonBase'
+import Card from '@mui/material/Card'
+import Checkbox from '@mui/material/Checkbox'
+import Chip from '@mui/material/Chip'
+import Collapse from '@mui/material/Collapse'
+import Divider from '@mui/material/Divider'
+import List from '@mui/material/List'
+import ListItem from '@mui/material/ListItem'
+import ListItemText from '@mui/material/ListItemText'
+import Stack from '@mui/material/Stack'
+import Tooltip from '@mui/material/Tooltip'
+import Typography from '@mui/material/Typography'
 import {useTranslation} from 'react-i18next'
 import type {MealSummary} from '@hse/shared/api/plans'
 import {grams, mealMeta} from '@hse/shared/format'
 import {hostname, useMealCard} from '@hse/shared/hooks/useMealCard'
+import {md} from '@/theme'
 
 interface Props {
   meal: MealSummary
@@ -12,73 +31,120 @@ interface Props {
 export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
   const { t } = useTranslation()
   const { open, card, busy, error, toggleOpen, toggleEaten, replace } = useMealCard(meal, onEatenChange, onReplaced)
+  const markLabel = meal.eaten ? t('meal.markNotEaten') : t('meal.markEaten')
 
   return (
-    <article className={`meal-card${meal.eaten ? ' eaten' : ''}`}>
-      <div className="meal-main">
-        <label className="meal-check" title={meal.eaten ? t('meal.markNotEaten') : t('meal.markEaten')}>
-          <input type="checkbox" checked={meal.eaten} onChange={toggleEaten} />
-        </label>
-        <button type="button" className="meal-summary" onClick={toggleOpen} aria-expanded={open}>
-          <span className="meal-type">{t(`options.mealType.${meal.mealType}`)}</span>
-          <span className="meal-name">{meal.dishName}</span>
-          <span className="meal-meta">
-            {mealMeta(meal.facts, meal.cookingTimeMin)}
-          </span>
-        </button>
-      </div>
+    <Card
+      component="article"
+      sx={{ bgcolor: meal.eaten ? md('surfaceContainer') : md('surfaceContainerLowest'), transition: 'background-color 200ms' }}
+      variant="outlined"
+    >
+      <Stack direction="row" sx={{ alignItems: 'center' }}>
+        <Tooltip title={markLabel}>
+          <Checkbox
+            checked={meal.eaten}
+            onChange={toggleEaten}
+            slotProps={{ input: { 'aria-label': markLabel } }}
+            sx={{ ml: 1 }}
+          />
+        </Tooltip>
+        <ButtonBase
+          onClick={toggleOpen}
+          aria-expanded={open}
+          sx={{ flex: 1, minWidth: 0, justifyContent: 'flex-start', textAlign: 'left', py: 1.5, pl: 0.5, pr: 2, gap: 1 }}
+        >
+          <Box sx={{ flex: 1, minWidth: 0 }}>
+            <Typography variant="overline" color="text.secondary" sx={{ display: 'block' }}>
+              {t(`options.mealType.${meal.mealType}`)}
+            </Typography>
+            <Typography
+              variant="subtitle1"
+              sx={meal.eaten ? { color: 'text.secondary', textDecoration: 'line-through' } : undefined}
+            >
+              {meal.dishName}
+            </Typography>
+            <Typography variant="body2" color="text.secondary" sx={{ fontVariantNumeric: 'tabular-nums' }}>
+              {mealMeta(meal.facts, meal.cookingTimeMin)}
+            </Typography>
+          </Box>
+          <ExpandMoreIcon
+            sx={{ color: 'text.secondary', transition: 'transform 200ms', transform: open ? 'rotate(180deg)' : 'none' }}
+          />
+        </ButtonBase>
+      </Stack>
 
       {error && (
-        <p className="form-error" role="alert">
+        <Alert severity="error" role="alert" sx={{ mx: 2, mb: 1.5 }}>
           {error}
-        </p>
+        </Alert>
       )}
 
-      {open && (
-        <div className="meal-details">
-          {!card && !error && <p className="muted">{t('common.loading')}</p>}
+      <Collapse in={open} unmountOnExit>
+        <Divider />
+        <Stack spacing={1.5} sx={{ p: 2, alignItems: 'flex-start' }}>
+          {!card && !error && (
+            <Typography variant="body2" color="text.secondary">
+              {t('common.loading')}
+            </Typography>
+          )}
           {card && (
             <>
-              <h4>{t('meal.ingredients')}</h4>
-              <ul className="ingredients">
+              <Typography variant="subtitle2">{t('meal.ingredients')}</Typography>
+              <List dense disablePadding sx={{ alignSelf: 'stretch' }}>
                 {card.ingredients.map((ing) => (
-                  <li key={ing.productName}>
-                    <span>{ing.productName}</span>
-                    <span className="muted">{grams(ing.grams)}</span>
-                  </li>
+                  <ListItem key={ing.productName} disableGutters divider secondaryAction={
+                    <Typography variant="body2" color="text.secondary">
+                      {grams(ing.grams)}
+                    </Typography>
+                  }>
+                    <ListItemText primary={ing.productName} />
+                  </ListItem>
                 ))}
-              </ul>
+              </List>
               {card.steps.length > 0 && (
                 <>
-                  <h4>{t('meal.steps')}</h4>
-                  <ol className="recipe-steps">
+                  <Typography variant="subtitle2">{t('meal.steps')}</Typography>
+                  <Box component="ol" sx={{ m: 0, pl: 2.5, typography: 'body2', '& li + li': { mt: 0.5 } }}>
                     {card.steps.map((step, i) => (
                       <li key={i}>{step}</li>
                     ))}
-                  </ol>
+                  </Box>
                 </>
               )}
               {card.recipeUrls.length > 0 && (
                 <>
-                  <h4>{t('meal.recipeLinks')}</h4>
-                  <ul className="recipe-links">
+                  <Typography variant="subtitle2">{t('meal.recipeLinks')}</Typography>
+                  <Stack direction="row" sx={{ flexWrap: 'wrap', gap: 1 }}>
                     {card.recipeUrls.map((url) => (
-                      <li key={url}>
-                        <a href={url} target="_blank" rel="noopener noreferrer">
-                          {hostname(url)}
-                        </a>
-                      </li>
+                      <Chip
+                        key={url}
+                        variant="outlined"
+                        clickable
+                        component="a"
+                        href={url}
+                        target="_blank"
+                        rel="noopener noreferrer"
+                        label={hostname(url)}
+                        icon={<OpenInNewIcon />}
+                      />
                     ))}
-                  </ul>
+                  </Stack>
                 </>
               )}
             </>
           )}
-          <button type="button" className="button button-secondary button-small" onClick={replace} disabled={busy}>
+          <Button
+            variant="outlined"
+            size="small"
+            startIcon={<SwapHorizIcon />}
+            onClick={replace}
+            disabled={busy}
+            sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
+          >
             {busy ? t('meal.replacing') : t('meal.replace')}
-          </button>
-        </div>
-      )}
-    </article>
+          </Button>
+        </Stack>
+      </Collapse>
+    </Card>
   )
 }

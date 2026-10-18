@@ -1,8 +1,15 @@
+import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import Link from '@mui/material/Link'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
 import type {FormEvent} from 'react'
 import {useTranslation} from 'react-i18next'
-import {Link, Navigate, useLocation, useNavigate} from 'react-router'
+import {Link as RouterLink, Navigate, useLocation, useNavigate} from 'react-router'
 import {useAuth} from '@hse/shared/auth/context'
 import {useLoginForm} from '@hse/shared/hooks/useAuthForms'
+import AuthShell from '@/components/AuthShell'
 
 export default function LoginPage() {
   const { user } = useAuth()
@@ -20,45 +27,40 @@ export default function LoginPage() {
   }
 
   return (
-    <section className="auth">
-      <h1>{t('auth.loginTitle')}</h1>
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <label>
-          {t('auth.username')}
-          <input
-            name="username"
-            autoComplete="username"
-            required
-            value={f.username}
-            onChange={(e) => f.setUsername(e.target.value)}
-          />
-        </label>
-        <label>
-          {t('auth.password')}
-          <input
-            name="password"
-            type="password"
-            autoComplete="current-password"
-            required
-            value={f.password}
-            onChange={(e) => f.setPassword(e.target.value)}
-          />
-        </label>
+    <AuthShell title={t('auth.loginTitle')}>
+      <Stack component="form" spacing={2.5} onSubmit={handleSubmit}>
+        <TextField
+          name="username"
+          label={t('auth.username')}
+          autoComplete="username"
+          required
+          value={f.username}
+          onChange={(e) => f.setUsername(e.target.value)}
+        />
+        <TextField
+          name="password"
+          type="password"
+          label={t('auth.password')}
+          autoComplete="current-password"
+          required
+          value={f.password}
+          onChange={(e) => f.setPassword(e.target.value)}
+        />
         {f.error && (
-          <p className="form-error" role="alert">
+          <Alert severity="error" role="alert">
             {f.error}
-          </p>
+          </Alert>
         )}
-        <button type="submit" disabled={f.submitting}>
+        <Button type="submit" variant="contained" size="large" disabled={f.submitting}>
           {f.submitting ? t('auth.loginSubmitting') : t('auth.loginSubmit')}
-        </button>
-      </form>
-      <p className="auth-switch">
+        </Button>
+      </Stack>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
         {t('auth.noAccount')}{' '}
-        <Link to="/register" state={location.state}>
+        <Link component={RouterLink} to="/register" state={location.state}>
           {t('auth.toRegister')}
         </Link>
-      </p>
-    </section>
+      </Typography>
+    </AuthShell>
   )
 }

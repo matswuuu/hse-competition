@@ -1,8 +1,15 @@
+import Alert from '@mui/material/Alert'
+import Button from '@mui/material/Button'
+import Link from '@mui/material/Link'
+import Stack from '@mui/material/Stack'
+import TextField from '@mui/material/TextField'
+import Typography from '@mui/material/Typography'
 import type {FormEvent} from 'react'
 import {Trans, useTranslation} from 'react-i18next'
-import {Link, Navigate, useLocation, useNavigate} from 'react-router'
+import {Link as RouterLink, Navigate, useLocation, useNavigate} from 'react-router'
 import {useAuth} from '@hse/shared/auth/context'
 import {PASSWORD_MAX, PASSWORD_MIN, useRegisterForm, USERNAME_MAX, USERNAME_MIN,} from '@hse/shared/hooks/useAuthForms'
+import AuthShell from '@/components/AuthShell'
 import QuestionnaireForm from '@/components/QuestionnaireForm'
 
 export default function RegisterPage() {
@@ -17,13 +24,10 @@ export default function RegisterPage() {
 
   if (f.step === 'questionnaire') {
     return (
-      <section className="auth auth-wide">
-        <p className="auth-step">{t('auth.step', { n: 2 })}</p>
-        <h1>{t('auth.aboutTitle')}</h1>
-        <p className="auth-lead">{t('auth.aboutLead')}</p>
+      <AuthShell wide step={t('auth.step', { n: 2 })} title={t('auth.aboutTitle')} lead={t('auth.aboutLead')}>
         {/* Fresh users land on their plan to generate the first one. */}
         <QuestionnaireForm onSubmitted={() => navigate(from === '/' ? '/profile/plan' : from, { replace: true })} />
-      </section>
+      </AuthShell>
     )
   }
 
@@ -33,66 +37,56 @@ export default function RegisterPage() {
   }
 
   return (
-    <section className="auth">
-      <p className="auth-step">{t('auth.step', { n: 1 })}</p>
-      <h1>{t('auth.registerTitle')}</h1>
-      <form className="auth-form" onSubmit={handleSubmit}>
-        <label>
-          {t('auth.username')}
-          <input
-            name="username"
-            autoComplete="username"
-            required
-            minLength={USERNAME_MIN}
-            maxLength={USERNAME_MAX}
-            value={f.username}
-            onChange={(e) => f.setUsername(e.target.value)}
-          />
-          <span className="hint">{t('auth.usernameHint', { min: USERNAME_MIN, max: USERNAME_MAX })}</span>
-        </label>
-        <label>
-          {t('auth.password')}
-          <input
-            name="password"
-            type="password"
-            autoComplete="new-password"
-            required
-            minLength={PASSWORD_MIN}
-            maxLength={PASSWORD_MAX}
-            value={f.password}
-            onChange={(e) => f.setPassword(e.target.value)}
-          />
-          <span className="hint">{t('auth.passwordHint', { min: PASSWORD_MIN })}</span>
-        </label>
-        <label>
-          {t('auth.confirmPassword')}
-          <input
-            name="confirm"
-            type="password"
-            autoComplete="new-password"
-            required
-            value={f.confirm}
-            onChange={(e) => f.setConfirm(e.target.value)}
-          />
-        </label>
+    <AuthShell step={t('auth.step', { n: 1 })} title={t('auth.registerTitle')}>
+      <Stack component="form" spacing={2.5} onSubmit={handleSubmit}>
+        <TextField
+          name="username"
+          label={t('auth.username')}
+          autoComplete="username"
+          required
+          slotProps={{ htmlInput: { minLength: USERNAME_MIN, maxLength: USERNAME_MAX } }}
+          helperText={t('auth.usernameHint', { min: USERNAME_MIN, max: USERNAME_MAX })}
+          value={f.username}
+          onChange={(e) => f.setUsername(e.target.value)}
+        />
+        <TextField
+          name="password"
+          type="password"
+          label={t('auth.password')}
+          autoComplete="new-password"
+          required
+          slotProps={{ htmlInput: { minLength: PASSWORD_MIN, maxLength: PASSWORD_MAX } }}
+          helperText={t('auth.passwordHint', { min: PASSWORD_MIN })}
+          value={f.password}
+          onChange={(e) => f.setPassword(e.target.value)}
+        />
+        <TextField
+          name="confirm"
+          type="password"
+          label={t('auth.confirmPassword')}
+          autoComplete="new-password"
+          required
+          value={f.confirm}
+          onChange={(e) => f.setConfirm(e.target.value)}
+        />
         {f.error && (
-          <p className="form-error" role="alert">
+          <Alert severity="error" role="alert">
             {f.error}
-          </p>
+          </Alert>
         )}
-        <p className="hint">
-          <Trans i18nKey="auth.acceptTerms" components={{ link: <Link to="/terms" target="_blank" /> }} />
-        </p>
-        <button type="submit" disabled={f.submitting}>
+        <Typography variant="caption" color="text.secondary">
+          <Trans i18nKey="auth.acceptTerms" components={{ link: <Link href="/terms" target="_blank" /> }} />
+        </Typography>
+        <Button type="submit" variant="contained" size="large" disabled={f.submitting}>
           {f.submitting ? t('auth.registering') : t('auth.next')}
-        </button>
-      </form>
-      <p className="auth-switch">
+        </Button>
+      </Stack>
+      <Typography variant="body2" color="text.secondary" sx={{ mt: 3 }}>
         {t('auth.haveAccount')}{' '}
-        <Link to="/login" state={location.state}>
+        <Link component={RouterLink} to="/login" state={location.state}>
           {t('auth.toLogin')}
         </Link>
-      </p>
-    </section>
+      </Typography>
+    </AuthShell>
   )
 }

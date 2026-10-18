@@ -1,59 +1,73 @@
+import Alert from '@mui/material/Alert'
+import Avatar from '@mui/material/Avatar'
+import LinearProgress from '@mui/material/LinearProgress'
+import Stack from '@mui/material/Stack'
+import Tab from '@mui/material/Tab'
+import Tabs from '@mui/material/Tabs'
+import Typography from '@mui/material/Typography'
 import {useTranslation} from 'react-i18next'
-import {Navigate, NavLink, Outlet, useLocation, useNavigate} from 'react-router'
+import {Link as RouterLink, Navigate, Outlet, useLocation} from 'react-router'
 import {useAuth} from '@hse/shared/auth/context'
 import {ProfileContext} from '@hse/shared/profile/context'
 import {useProfileData} from '@hse/shared/profile/useProfileData'
+import {activeSection, PROFILE_NAV, useCompact} from '@/components/profileNav'
+import {md} from '@/theme'
 
 export default function ProfileLayout() {
-  const { user, logout } = useAuth()
+  const { user } = useAuth()
   const { t } = useTranslation()
-  const navigate = useNavigate()
   const { pathname } = useLocation()
+  const compact = useCompact()
   const { status, value } = useProfileData(user)
 
   if (!user) return <Navigate to="/login" replace state={{ from: pathname }} />
 
-  const tabs = [
-    { to: '/profile', label: t('profile.nav.overview'), end: true },
-    { to: '/profile/plan', label: t('profile.nav.plan') },
-    { to: '/profile/shopping', label: t('profile.nav.shopping') },
-    { to: '/profile/data', label: t('profile.nav.data') },
-    { to: '/profile/settings', label: t('profile.nav.settings') },
-  ]
-
   return (
-    <div className="profile">
-      <h1 className="profile-title">{user.username}</h1>
+    <Stack spacing={3}>
+      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', minWidth: 0 }}>
+        <Avatar sx={{ width: 48, height: 48, bgcolor: md('primaryContainer'), color: md('onPrimaryContainer') }}>
+          {user.username.charAt(0).toUpperCase()}
+        </Avatar>
+        <Typography variant="h4" component="h1" sx={{ overflowWrap: 'anywhere' }}>
+          {user.username}
+        </Typography>
+      </Stack>
 
-      <nav className="profile-tabs" aria-label={t('profile.nav.label')}>
-        {tabs.map((tab) => (
-          <NavLink key={tab.to} to={tab.to} end={tab.end}>
-            {tab.label}
-          </NavLink>
-        ))}
-        <button
-          type="button"
-          className="link-button profile-logout"
-          onClick={() => {
-            logout()
-            navigate('/', { replace: true })
-          }}
+      {/* Phones navigate with the bottom bar from Layout. */}
+      {!compact && (
+        <Tabs
+          component="nav"
+          aria-label={t('profile.nav.label')}
+          value={activeSection(pathname)}
+          variant="scrollable"
+          scrollButtons={false}
+          sx={{ mt: -1, borderBottom: 1, borderColor: 'divider' }}
         >
-          {t('profile.nav.logout')}
-        </button>
-      </nav>
+          {PROFILE_NAV.map(({ to, label, icon: Icon }) => (
+            <Tab
+              key={to}
+              value={to}
+              label={t(label)}
+              icon={<Icon fontSize="small" />}
+              iconPosition="start"
+              component={RouterLink}
+              to={to}
+            />
+          ))}
+        </Tabs>
+      )}
 
-      {status === 'loading' && <p className="muted">{t('common.loading')}</p>}
+      {status === 'loading' && <LinearProgress aria-label={t('common.loading')} />}
       {status === 'error' && (
-        <p className="form-error" role="alert">
+        <Alert severity="error" role="alert">
           {t('profile.loadFailed')}
-        </p>
+        </Alert>
       )}
       {value && (
         <ProfileContext value={value}>
           <Outlet />
         </ProfileContext>
       )}
-    </div>
+    </Stack>
   )
 }

@@ -1,3 +1,4 @@
+import Link from '@mui/material/Link'
 import {useTranslation} from 'react-i18next'
 import {useProductSource} from '@hse/shared/hooks/useProductSource'
 
@@ -7,11 +8,11 @@ export default function ProductSource({ prefix }: { prefix?: string }) {
 
   if (!source) return null
   return (
-    <span className="product-source">
+    <span>
       {prefix ?? t('layout.productSource')}:{' '}
-      <a href={source.url} target="_blank" rel="noreferrer">
+      <Link href={source.url} target="_blank" rel="noreferrer" color="inherit" underline="always">
         {source.name}
-      </a>
+      </Link>
     </span>
   )
 }

@@ -250,7 +250,7 @@ const en: typeof ru = {
     badFile: 'This file cannot be processed. Choose a JPEG or PNG photo',
     unavailable: 'Recognition is temporarily unavailable',
     retry: 'Try again',
-    back: '← Back to plan',
+    back: 'Back to plan',
     sample: ['Boiled buckwheat', 'Chicken breast', 'Cucumber', 'Olive oil'],
   },
   legal: {
