@@ -1,14 +1,13 @@
 import EcoIcon from '@mui/icons-material/EnergySavingsLeaf'
+import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import LogoutIcon from '@mui/icons-material/Logout'
 import AppBar from '@mui/material/AppBar'
-import Avatar from '@mui/material/Avatar'
 import BottomNavigation from '@mui/material/BottomNavigation'
 import BottomNavigationAction from '@mui/material/BottomNavigationAction'
 import Box from '@mui/material/Box'
 import Button from '@mui/material/Button'
 import Container from '@mui/material/Container'
 import Divider from '@mui/material/Divider'
-import IconButton from '@mui/material/IconButton'
 import Link from '@mui/material/Link'
 import ListItemIcon from '@mui/material/ListItemIcon'
 import Menu from '@mui/material/Menu'
@@ -38,11 +37,17 @@ function AccountMenu({ username }: { username: string }) {
 
   return (
     <>
-      <IconButton onClick={(e) => setAnchor(e.currentTarget)} aria-label={username} aria-haspopup="menu">
-        <Avatar sx={{ width: 36, height: 36, bgcolor: md('primaryContainer'), color: md('onPrimaryContainer') }}>
-          {username.charAt(0).toUpperCase()}
-        </Avatar>
-      </IconButton>
+      <Button
+        color="inherit"
+        onClick={(e) => setAnchor(e.currentTarget)}
+        aria-haspopup="menu"
+        endIcon={<ExpandMoreIcon />}
+        sx={{ minWidth: 0, maxWidth: { xs: '10rem', sm: '16rem' } }}
+      >
+        <Box component="span" sx={{ overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>
+          {username}
+        </Box>
+      </Button>
       <Menu
         anchorEl={anchor}
         open={!!anchor}

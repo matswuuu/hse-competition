@@ -1,5 +1,4 @@
 import Alert from '@mui/material/Alert'
-import Avatar from '@mui/material/Avatar'
 import LinearProgress from '@mui/material/LinearProgress'
 import Stack from '@mui/material/Stack'
 import Tab from '@mui/material/Tab'
@@ -11,7 +10,6 @@ import {useAuth} from '@hse/shared/auth/context'
 import {ProfileContext} from '@hse/shared/profile/context'
 import {useProfileData} from '@hse/shared/profile/useProfileData'
 import {activeSection, PROFILE_NAV, useCompact} from '@/components/profileNav'
-import {md} from '@/theme'
 
 export default function ProfileLayout() {
   const { user } = useAuth()
@@ -24,14 +22,9 @@ export default function ProfileLayout() {
 
   return (
     <Stack spacing={3}>
-      <Stack direction="row" spacing={2} sx={{ alignItems: 'center', minWidth: 0 }}>
-        <Avatar sx={{ width: 48, height: 48, bgcolor: md('primaryContainer'), color: md('onPrimaryContainer') }}>
-          {user.username.charAt(0).toUpperCase()}
-        </Avatar>
-        <Typography variant="h4" component="h1" sx={{ overflowWrap: 'anywhere' }}>
-          {user.username}
-        </Typography>
-      </Stack>
+      <Typography variant="h4" component="h1" sx={{ overflowWrap: 'anywhere' }}>
+        {user.username}
+      </Typography>
 
       {/* Phones navigate with the bottom bar from Layout. */}
       {!compact && (
