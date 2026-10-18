@@ -1,0 +1,725 @@
+# Default dishes for the code-only planner (DefaultMealsProperties, prefix "meals").
+#
+# DishSeeder inserts every dish whose name is not in the `dishes` table yet, and adds
+# missing recipe-urls to dishes that already exist. Nothing else in the DB is overwritten,
+# so edits made there are kept.
+#
+# Fields:
+#   name              unique dish name shown to the user
+#   slots             BREAKFAST | LUNCH | DINNER | SNACK (SNACK also fills SNACK_2)
+#   cooking-time-min  total cooking time, minutes
+#   ingredients       product must match a name in products.csv; grams = template portion
+#                     before portion fitting
+#   steps             short cooking steps, in order
+#   recipe-urls       external pages with a fuller recipe of the same or a close dish
+meals:
+  defaults:
+
+    - name: "Овсянка с бананом и арахисовой пастой"
+      slots:
+        - BREAKFAST
+      cooking-time-min: 15
+      ingredients:
+        - product: "Овсянка (сухая)"
+          grams: 60
+        - product: "Молоко 3.2%"
+          grams: 150
+        - product: "Банан"
+          grams: 100
+        - product: "Арахисовая паста"
+          grams: 20
+        - product: "Мёд"
+          grams: 10
+      steps:
+        - "Залейте овсянку молоком и варите 7–10 минут до готовности."
+        - "Нарежьте банан кружочками."
+        - "Выложите кашу в тарелку, добавьте банан, арахисовую пасту и мёд."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/ovsyanka-s-bananom-i-araxisovoj-pastoj/"
+
+    - name: "Омлет с овощами и хлебом"
+      slots:
+        - BREAKFAST
+      cooking-time-min: 15
+      ingredients:
+        - product: "Яйцо куриное"
+          grams: 150
+        - product: "Молоко 3.2%"
+          grams: 50
+        - product: "Помидор"
+          grams: 100
+        - product: "Перец болгарский"
+          grams: 50
+        - product: "Масло подсолнечное"
+          grams: 5
+        - product: "Хлеб цельнозерновой"
+          grams: 60
+      steps:
+        - "Взбейте яйца с молоком и солью."
+        - "Нарежьте овощи, обжарьте 2–3 минуты на масле."
+        - "Залейте овощи яичной смесью, готовьте под крышкой 5 минут."
+        - "Подавайте с хлебом."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/omlet-s-ovoshhami/"
+        - "https://www.russianfood.com/recipes/recipe.php?rid=7824"
+
+    - name: "Творог с ягодами и мёдом"
+      slots:
+        - BREAKFAST
+      cooking-time-min: 10
+      ingredients:
+        - product: "Творог 5%"
+          grams: 200
+        - product: "Клубника"
+          grams: 100
+        - product: "Мёд"
+          grams: 15
+        - product: "Семена чиа"
+          grams: 10
+      steps:
+        - "Выложите творог в тарелку."
+        - "Добавьте ягоды, мёд и семена чиа, перемешайте."
+      recipe-urls:
+        - "https://www.russianfood.com/recipes/recipe.php?rid=25741"
+
+    - name: "Гречка с молоком и бананом"
+      slots:
+        - BREAKFAST
+      cooking-time-min: 20
+      ingredients:
+        - product: "Гречка (сухая)"
+          grams: 60
+        - product: "Молоко 3.2%"
+          grams: 200
+        - product: "Банан"
+          grams: 80
+      steps:
+        - "Отварите гречку в воде 15 минут."
+        - "Слейте воду, добавьте горячее молоко и нарезанный банан."
+      recipe-urls:
+        - "https://mel.fm/zhizn/retsepty/182645-5-retseptov-iz-grechki-zavtrak-obed-i-dazhe-desert"
+        - "https://lifehacker.ru/recipe/grechnevaya-kasha-s-molokom/"
+
+    - name: "Яичница с индейкой и овощами"
+      slots:
+        - BREAKFAST
+      cooking-time-min: 15
+      ingredients:
+        - product: "Яйцо куриное"
+          grams: 100
+        - product: "Индейка (филе)"
+          grams: 80
+        - product: "Помидор"
+          grams: 100
+        - product: "Масло подсолнечное"
+          grams: 5
+        - product: "Хлеб ржаной"
+          grams: 40
+      steps:
+        - "Нарежьте индейку полосками, обжарьте 5 минут."
+        - "Добавьте помидор, через 2 минуты разбейте яйца."
+        - "Готовьте 4–5 минут, подавайте с хлебом."
+      recipe-urls:
+        - "https://www.russianfood.com/recipes/recipe.php?rid=164679"
+
+    - name: "Куриная грудка с рисом и овощами"
+      slots:
+        - LUNCH
+      cooking-time-min: 35
+      ingredients:
+        - product: "Куриная грудка (филе)"
+          grams: 150
+        - product: "Рис белый (сухой)"
+          grams: 80
+        - product: "Огурец"
+          grams: 100
+        - product: "Помидор"
+          grams: 100
+        - product: "Масло оливковое"
+          grams: 10
+      steps:
+        - "Отварите рис 20 минут."
+        - "Грудку посолите, обжарьте или запеките 20–25 минут."
+        - "Нарежьте овощи, заправьте маслом, подавайте с рисом и грудкой."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/kurica-s-risom-goroshkom-i-morkovyu/"
+
+    - name: "Гречка с говядиной"
+      slots:
+        - LUNCH
+      cooking-time-min: 40
+      ingredients:
+        - product: "Гречка (сухая)"
+          grams: 80
+        - product: "Говядина постная"
+          grams: 150
+        - product: "Морковь"
+          grams: 50
+        - product: "Лук репчатый"
+          grams: 50
+        - product: "Масло подсолнечное"
+          grams: 5
+      steps:
+        - "Отварите гречку 15–18 минут."
+        - "Говядину нарежьте, тушите с луком и морковью 25 минут."
+        - "Подавайте мясо с гречкой."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/grechka-s-govyadinoj-po-kupecheski/"
+
+    - name: "Макароны с индейкой в томатном соусе"
+      slots:
+        - LUNCH
+      cooking-time-min: 30
+      ingredients:
+        - product: "Макароны твёрдых сортов (сухие)"
+          grams: 90
+        - product: "Индейка (филе)"
+          grams: 130
+        - product: "Томатная паста"
+          grams: 30
+        - product: "Лук репчатый"
+          grams: 40
+        - product: "Масло подсолнечное"
+          grams: 5
+        - product: "Пармезан"
+          grams: 15
+      steps:
+        - "Отварите макароны до готовности."
+        - "Обжарьте индейку с луком 8 минут, добавьте томатную пасту и 100 мл воды."
+        - "Тушите 10 минут, смешайте с макаронами, посыпьте пармезаном."
+      recipe-urls:
+        - "https://www.russianfood.com/recipes/recipe.php?rid=164017"
+
+    - name: "Треска с картофелем"
+      slots:
+        - LUNCH
+      cooking-time-min: 30
+      ingredients:
+        - product: "Треска"
+          grams: 180
+        - product: "Картофель"
+          grams: 250
+        - product: "Морковь"
+          grams: 50
+        - product: "Масло подсолнечное"
+          grams: 10
+        - product: "Лимон"
+          grams: 10
+      steps:
+        - "Отварите картофель 20 минут."
+        - "Треску запеките с морковью 15 минут при 180°C."
+        - "Подавайте с лимоном."
+      recipe-urls:
+        - "https://eda.rambler.ru/recepty/osnovnye-blyuda/treska-s-kartofelem-lukom-15191"
+        - "https://www.russianfood.com/recipes/recipe.php?rid=159965"
+
+    - name: "Булгур с куриным бедром"
+      slots:
+        - LUNCH
+      cooking-time-min: 40
+      ingredients:
+        - product: "Булгур"
+          grams: 80
+        - product: "Куриное бедро без кожи"
+          grams: 150
+        - product: "Перец болгарский"
+          grams: 80
+        - product: "Масло подсолнечное"
+          grams: 5
+      steps:
+        - "Залейте булгур кипятком 1:2, оставьте под крышкой 20 минут."
+        - "Бедро запеките 30 минут при 190°C."
+        - "Подавайте с нарезанным перцем."
+      recipe-urls:
+        - "https://www.russianfood.com/recipes/recipe.php?rid=168468"
+
+    - name: "Лосось с овощами"
+      slots:
+        - DINNER
+      cooking-time-min: 25
+      ingredients:
+        - product: "Лосось"
+          grams: 150
+        - product: "Брокколи"
+          grams: 150
+        - product: "Морковь"
+          grams: 50
+        - product: "Масло оливковое"
+          grams: 5
+        - product: "Лимон"
+          grams: 10
+      steps:
+        - "Запеките лосось 15–18 минут при 190°C."
+        - "Брокколи и морковь отварите на пару 7 минут."
+        - "Сбрызните маслом и лимоном."
+      recipe-urls:
+        - "https://www.povarenok.ru/recipes/show/176918/"
+        - "https://eda.rambler.ru/recepty/osnovnye-blyuda/zapechennij-losos-s-brokkoli-20027"
+
+    - name: "Салат с тунцом"
+      slots:
+        - LUNCH
+        - DINNER
+      cooking-time-min: 15
+      ingredients:
+        - product: "Тунец консервированный в воде"
+          grams: 120
+        - product: "Яйцо куриное"
+          grams: 50
+        - product: "Огурец"
+          grams: 100
+        - product: "Салат листовой"
+          grams: 50
+        - product: "Масло оливковое"
+          grams: 10
+        - product: "Хлеб цельнозерновой"
+          grams: 40
+      steps:
+        - "Отварите яйцо вкрутую (9 минут), нарежьте."
+        - "Смешайте тунец, овощи и яйцо, заправьте маслом."
+        - "Подавайте с хлебом."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/salat-s-tuncom-ogurcami-i-yajcami/"
+        - "https://www.russianfood.com/recipes/recipe.php?rid=144934"
+
+    - name: "Куриная грудка с киноа"
+      slots:
+        - LUNCH
+        - DINNER
+      cooking-time-min: 30
+      ingredients:
+        - product: "Куриная грудка (филе)"
+          grams: 130
+        - product: "Киноа"
+          grams: 70
+        - product: "Шпинат"
+          grams: 50
+        - product: "Помидор"
+          grams: 80
+        - product: "Масло оливковое"
+          grams: 5
+      steps:
+        - "Отварите киноа 15 минут."
+        - "Грудку обжарьте по 6 минут с каждой стороны."
+        - "Подавайте со шпинатом и помидором."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/kinoa-s-kuricej/"
+        - "https://www.povarenok.ru/recipes/show/181326/"
+
+    - name: "Омлет с творогом и зеленью"
+      slots:
+        - DINNER
+      cooking-time-min: 15
+      ingredients:
+        - product: "Яйцо куриное"
+          grams: 100
+        - product: "Творог 5%"
+          grams: 100
+        - product: "Шпинат"
+          grams: 40
+        - product: "Хлеб ржаной"
+          grams: 40
+      steps:
+        - "Взбейте яйца, смешайте с творогом и шпинатом."
+        - "Готовьте на сковороде под крышкой 6–7 минут."
+        - "Подавайте с хлебом."
+      recipe-urls:
+        - "https://www.povarenok.ru/recipes/show/151483/"
+
+    - name: "Индейка с бататом"
+      slots:
+        - LUNCH
+        - DINNER
+      cooking-time-min: 35
+      ingredients:
+        - product: "Индейка (филе)"
+          grams: 150
+        - product: "Батат"
+          grams: 200
+        - product: "Фасоль стручковая"
+          grams: 100
+        - product: "Масло подсолнечное"
+          grams: 5
+      steps:
+        - "Запеките батат дольками 25 минут при 190°C."
+        - "Индейку обжарьте 10–12 минут."
+        - "Фасоль отварите 5 минут, подавайте вместе."
+      recipe-urls:
+        - "https://www.povarenok.ru/recipes/show/181936/"
+
+    - name: "Греческий йогурт с орехами и яблоком"
+      slots:
+        - SNACK
+      cooking-time-min: 5
+      ingredients:
+        - product: "Йогурт греческий 2%"
+          grams: 200
+        - product: "Яблоко"
+          grams: 120
+        - product: "Грецкий орех"
+          grams: 20
+        - product: "Мёд"
+          grams: 10
+      steps:
+        - "Нарежьте яблоко."
+        - "Смешайте йогурт с яблоком, добавьте орехи и мёд."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/salat-s-yablokom-greckimi-orexami-i-myodom/"
+
+    - name: "Творог с бананом"
+      slots:
+        - SNACK
+      cooking-time-min: 5
+      ingredients:
+        - product: "Творог 0%"
+          grams: 150
+        - product: "Банан"
+          grams: 100
+        - product: "Какао-порошок"
+          grams: 5
+      steps:
+        - "Смешайте творог с нарезанным бананом, посыпьте какао."
+      recipe-urls:
+        - "https://www.povarenok.ru/recipes/show/175697/"
+
+    - name: "Бутерброд с индейкой"
+      slots:
+        - SNACK
+      cooking-time-min: 10
+      ingredients:
+        - product: "Хлеб цельнозерновой"
+          grams: 60
+        - product: "Индейка (филе)"
+          grams: 60
+        - product: "Огурец"
+          grams: 50
+        - product: "Салат листовой"
+          grams: 20
+      steps:
+        - "Отварите или запеките индейку заранее."
+        - "Соберите бутерброд: хлеб, индейка, огурец, салат."
+      recipe-urls:
+        - "https://www.russianfood.com/recipes/recipe.php?rid=56715"
+
+    - name: "Кефир с бананом и льном"
+      slots:
+        - SNACK
+      cooking-time-min: 5
+      ingredients:
+        - product: "Кефир 2.5%"
+          grams: 250
+        - product: "Банан"
+          grams: 80
+        - product: "Семена льна"
+          grams: 10
+      steps:
+        - "Взбейте кефир с бананом в блендере, добавьте семена льна."
+      recipe-urls:
+        - "https://eda.rambler.ru/recepty/zavtraki/bananovo-kljukvennij-smuzi-s-ovsjanimi-hlopjami-i-semenami-lna-48990"
+        - "https://www.povarenok.ru/recipes/show/110175/"
+
+    - name: "Плов с курицей"
+      slots:
+        - LUNCH
+      cooking-time-min: 40
+      ingredients:
+        - product: "Куриное бедро без кожи"
+          grams: 130
+        - product: "Рис белый (сухой)"
+          grams: 90
+        - product: "Морковь"
+          grams: 60
+        - product: "Лук репчатый"
+          grams: 40
+        - product: "Масло подсолнечное"
+          grams: 10
+      steps:
+        - "Обжарьте курицу с луком и морковью 8 минут."
+        - "Добавьте рис и 200 мл воды, тушите под крышкой 20 минут."
+      recipe-urls:
+        - "https://1000.menu/cooking/18098-plov-s-kurinym-file-na-skovorode"
+        - "https://www.russianfood.com/recipes/recipe.php?rid=143023"
+
+    - name: "Паста с курицей и овощами"
+      slots:
+        - LUNCH
+      cooking-time-min: 25
+      ingredients:
+        - product: "Макароны твёрдых сортов (сухие)"
+          grams: 100
+        - product: "Куриная грудка (филе)"
+          grams: 120
+        - product: "Перец болгарский"
+          grams: 80
+        - product: "Томатная паста"
+          grams: 20
+        - product: "Масло подсолнечное"
+          grams: 5
+        - product: "Пармезан"
+          grams: 10
+      steps:
+        - "Отварите макароны."
+        - "Обжарьте грудку с перцем 8 минут, добавьте томатную пасту."
+        - "Смешайте с макаронами, посыпьте пармезаном."
+      recipe-urls:
+        - "https://www.povarenok.ru/recipes/show/143525/"
+        - "https://www.russianfood.com/recipes/recipe.php?rid=162625"
+
+    - name: "Булгур с нутом"
+      slots:
+        - LUNCH
+      cooking-time-min: 25
+      ingredients:
+        - product: "Булгур"
+          grams: 90
+        - product: "Нут (сухой)"
+          grams: 60
+        - product: "Морковь"
+          grams: 50
+        - product: "Масло оливковое"
+          grams: 10
+        - product: "Лимон"
+          grams: 10
+      steps:
+        - "Нут замочите на ночь и отварите 40 минут (или возьмите готовый)."
+        - "Булгур залейте кипятком на 20 минут."
+        - "Смешайте с нутом и морковью, заправьте маслом и лимоном."
+      recipe-urls:
+        - "https://www.russianfood.com/recipes/recipe.php?rid=175210"
+        - "https://lifehacker.ru/recipe/tabule-s-bulgurom-i-nutom/"
+
+    - name: "Рис с индейкой и кукурузой"
+      slots:
+        - LUNCH
+        - DINNER
+      cooking-time-min: 30
+      ingredients:
+        - product: "Рис белый (сухой)"
+          grams: 80
+        - product: "Индейка (филе)"
+          grams: 130
+        - product: "Кукуруза"
+          grams: 100
+        - product: "Огурец"
+          grams: 80
+        - product: "Масло подсолнечное"
+          grams: 5
+      steps:
+        - "Отварите рис 20 минут."
+        - "Индейку обжарьте 10–12 минут."
+        - "Подавайте с кукурузой и огурцом."
+      recipe-urls:
+        - "https://www.russianfood.com/recipes/recipe.php?rid=170722"
+        - "https://www.povarenok.ru/recipes/show/80418/"
+
+    - name: "Паста с тунцом"
+      slots:
+        - LUNCH
+        - DINNER
+      cooking-time-min: 20
+      ingredients:
+        - product: "Макароны твёрдых сортов (сухие)"
+          grams: 90
+        - product: "Тунец консервированный в воде"
+          grams: 100
+        - product: "Помидор"
+          grams: 100
+        - product: "Масло оливковое"
+          grams: 10
+        - product: "Пармезан"
+          grams: 10
+      steps:
+        - "Отварите макароны."
+        - "Смешайте с тунцом и нарезанным помидором."
+        - "Заправьте маслом, посыпьте пармезаном."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/pasta-s-pomidorami-i-tuncom/"
+
+    - name: "Пшённая каша с тыквой"
+      slots:
+        - BREAKFAST
+      cooking-time-min: 25
+      ingredients:
+        - product: "Пшено"
+          grams: 70
+        - product: "Тыква"
+          grams: 150
+        - product: "Молоко 3.2%"
+          grams: 150
+        - product: "Мёд"
+          grams: 10
+      steps:
+        - "Отварите пшено 15 минут."
+        - "Тыкву нарежьте кубиками, добавьте к пшену с молоком."
+        - "Варите ещё 8 минут, добавьте мёд."
+      recipe-urls:
+        - "https://eda.rambler.ru/recepty/zavtraki/pshennaya-molochnaya-kasha-s-tykvoy-15110"
+        - "https://lifehacker.ru/recipe/pshyonnaya-kasha-s-tykvoj-na-moloke/"
+
+    - name: "Бутерброд с арахисовой пастой и бананом"
+      slots:
+        - SNACK
+      cooking-time-min: 5
+      ingredients:
+        - product: "Хлеб цельнозерновой"
+          grams: 70
+        - product: "Арахисовая паста"
+          grams: 30
+        - product: "Банан"
+          grams: 80
+      steps:
+        - "Намажьте хлеб арахисовой пастой."
+        - "Выложите сверху кружочки банана."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/tosty-s-araxisovoj-pastoj-i-bananom/"
+
+    - name: "Рисовая каша с яблоком"
+      slots:
+        - BREAKFAST
+      cooking-time-min: 25
+      ingredients:
+        - product: "Рис белый (сухой)"
+          grams: 70
+        - product: "Молоко 3.2%"
+          grams: 150
+        - product: "Яблоко"
+          grams: 100
+        - product: "Мёд"
+          grams: 10
+      steps:
+        - "Отварите рис в молоке 20 минут."
+        - "Добавьте нарезанное яблоко и мёд."
+      recipe-urls:
+        - "https://www.russianfood.com/recipes/recipe.php?rid=164607"
+        - "https://lifehacker.ru/recipe/risovaya-kasha-s-yablokami/"
+
+    - name: "Гречка с грибами"
+      slots:
+        - DINNER
+      cooking-time-min: 30
+      ingredients:
+        - product: "Гречка (сухая)"
+          grams: 80
+        - product: "Шампиньоны"
+          grams: 150
+        - product: "Лук репчатый"
+          grams: 40
+        - product: "Масло подсолнечное"
+          grams: 10
+        - product: "Сметана 15%"
+          grams: 30
+      steps:
+        - "Отварите гречку 15–18 минут."
+        - "Обжарьте грибы с луком 10 минут."
+        - "Подавайте гречку с грибами и сметаной."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/grechnevaya-kasha-s-zharenymi-gribami-i-lukom/"
+        - "https://1000.menu/cooking/27078-grechka-s-shampinonami"
+
+    - name: "Овсяное печенье с кефиром"
+      slots:
+        - SNACK
+      cooking-time-min: 5
+      ingredients:
+        - product: "Печенье овсяное"
+          grams: 60
+        - product: "Кефир 2.5%"
+          grams: 200
+      steps:
+        - "Подавайте печенье с холодным кефиром."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/klassicheskoe-ovsyanoe-pechene/"
+        - "https://www.russianfood.com/recipes/recipe.php?rid=169911"
+
+    - name: "Креветки с овощами"
+      slots:
+        - LUNCH
+        - DINNER
+      cooking-time-min: 20
+      ingredients:
+        - product: "Креветки"
+          grams: 150
+        - product: "Перец болгарский"
+          grams: 100
+        - product: "Кабачок"
+          grams: 100
+        - product: "Масло оливковое"
+          grams: 5
+      steps:
+        - "Обжарьте овощи 5 минут."
+        - "Добавьте креветки, готовьте ещё 4–5 минут."
+      recipe-urls:
+        - "https://lifehacker.ru/recipe/zharenye-krevetki-s-kabachkami-i-bolgarskim-percem/"
+
+    - name: "Творог 0% с клубникой"
+      slots:
+        - SNACK
+      cooking-time-min: 5
+      ingredients:
+        - product: "Творог 0%"
+          grams: 200
+        - product: "Клубника"
+          grams: 100
+      steps:
+        - "Смешайте творог с ягодами."
+      recipe-urls:
+        - "https://eda.rambler.ru/recepty/vypechka-deserty/tvorozhno-klubnichnyy-desert-186490"
+        - "https://1000.menu/cooking/38298-desert-iz-klubniki-i-tvoroga"
+
+    - name: "Омлет из белков с овощами"
+      slots:
+        - BREAKFAST
+      cooking-time-min: 15
+      ingredients:
+        - product: "Белок яйца"
+          grams: 200
+        - product: "Помидор"
+          grams: 80
+        - product: "Шпинат"
+          grams: 30
+        - product: "Хлеб ржаной"
+          grams: 30
+      steps:
+        - "Взбейте белки с солью."
+        - "Добавьте овощи, готовьте под крышкой 5–6 минут."
+        - "Подавайте с хлебом."
+      recipe-urls:
+        - "https://eda.rambler.ru/recepty/zavtraki/belkovyy-omlet-151903"
+        - "https://www.russianfood.com/recipes/recipe.php?rid=153970"
+
+    - name: "Паста с овощами и маслом"
+      slots:
+        - LUNCH
+        - DINNER
+      cooking-time-min: 20
+      ingredients:
+        - product: "Макароны твёрдых сортов (сухие)"
+          grams: 120
+        - product: "Перец болгарский"
+          grams: 80
+        - product: "Кабачок"
+          grams: 80
+        - product: "Масло оливковое"
+          grams: 15
+        - product: "Пармезан"
+          grams: 10
+      steps:
+        - "Отварите макароны."
+        - "Овощи обжарьте на масле 6–7 минут."
+        - "Смешайте с макаронами, посыпьте пармезаном."
+      recipe-urls:
+        - "https://eda.rambler.ru/recepty/pasta-picca/pasta-s-kabachkami-i-percem-v-tomatnom-souse-139701"
+        - "https://1000.menu/cooking/42644-makarony-s-kabachkami"
+
+    - name: "Орехи с бананом"
+      slots:
+        - SNACK
+      cooking-time-min: 5
+      ingredients:
+        - product: "Миндаль"
+          grams: 30
+        - product: "Банан"
+          grams: 120
+      steps:
+        - "Выложите миндаль и нарезанный банан на тарелку."
+      recipe-urls: []

@@ -1,0 +1,23 @@
+# Opt-in LLM planner (§4.3): activate with SPRING_PROFILES_ACTIVE=llm and GEMINI_API_KEY.
+# The demo planner stays as the fallback when the API fails or the plan misses the tolerance.
+spring:
+  autoconfigure:
+    # Same list as application.yaml minus GoogleGenAiChatAutoConfiguration (lists replace, not merge).
+    exclude:
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiEmbeddingConnectionAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.embedding.GoogleGenAiTextEmbeddingAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.image.GoogleGenAiImageAutoConfiguration
+      - org.springframework.ai.model.google.genai.autoconfigure.image.GoogleGenAiImageConnectionAutoConfiguration
+      - org.springframework.ai.model.vertexai.autoconfigure.embedding.VertexAiEmbeddingConnectionAutoConfiguration
+      - org.springframework.ai.model.vertexai.autoconfigure.embedding.VertexAiMultiModalEmbeddingAutoConfiguration
+      - org.springframework.ai.model.vertexai.autoconfigure.embedding.VertexAiTextEmbeddingAutoConfiguration
+  ai:
+    google:
+      genai:
+        api-key: ${GEMINI_API_KEY}
+        chat:
+          model: ${GEMINI_MODEL:gemini-2.5-flash}
+
+nutrition:
+  llm:
+    enabled: true
