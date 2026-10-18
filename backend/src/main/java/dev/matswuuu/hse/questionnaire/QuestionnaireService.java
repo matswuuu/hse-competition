@@ -34,23 +34,25 @@ public class QuestionnaireService {
     @Transactional
     public QuestionnaireResponse submit(QuestionnaireRequest request) {
         User user = CurrentUser.get();
-        Questionnaire q = new Questionnaire();
-        q.setUser(user);
-        q.setSex(request.sex());
-        q.setAge(request.age());
-        q.setHeightCm(request.heightCm());
-        q.setWeightKg(request.weightKg());
-        q.setActivityLevel(request.activityLevel());
-        q.setTrainingsPerWeek(request.trainingsPerWeek());
-        q.setTrainingDays(request.trainingDays() == null ? new HashSet<>() : new HashSet<>(request.trainingDays()));
-        q.setGoal(request.goal());
-        q.setMealsPerDay(request.mealsPerDay());
-        q.setExcludedTags(normalizeTags(request.excludedTags()));
-        q.setExcludedFreeText(request.excludedFreeText());
-        q.setCookingTime(request.cookingTime());
-        q.setBudgetPerDay(request.budgetPerDay());
-        q.setConsentAgreed(true);
-        Questionnaire saved = questionnaireRepository.save(q);
+        Questionnaire questionnaire = Questionnaire.builder()
+                .user(user)
+                .sex(request.sex())
+                .age(request.age())
+                .heightCm(request.heightCm())
+                .weightKg(request.weightKg())
+                .activityLevel(request.activityLevel())
+                .trainingsPerWeek(request.trainingsPerWeek())
+                .trainingDays(request.trainingDays() == null ? new HashSet<>() : new HashSet<>(request.trainingDays()))
+                .goal(request.goal())
+                .mealsPerDay(request.mealsPerDay())
+                .excludedTags(normalizeTags(request.excludedTags()))
+                .excludedFreeText(request.excludedFreeText())
+                .cookingTime(request.cookingTime())
+                .budgetPerDay(request.budgetPerDay())
+                .consentAgreed(true)
+                .build();
+
+        Questionnaire saved = questionnaireRepository.save(questionnaire);
         analyticsService.log(user, AnalyticsEventType.QUESTIONNAIRE_COMPLETED, "questionnaireId=" + saved.getId());
         return QuestionnaireResponse.from(saved);
     }
@@ -64,7 +66,13 @@ public class QuestionnaireService {
     public DayTargets targets() {
         Questionnaire q = latestEntity();
         return calculator.calculate(
-                q.getSex(), q.getAge(), q.getHeightCm(), q.getWeightKg(), q.getActivityLevel(), q.getGoal());
+                q.getSex(),
+                q.getAge(),
+                q.getHeightCm(),
+                q.getWeightKg(),
+                q.getActivityLevel(),
+                q.getGoal()
+        );
     }
 
     public Questionnaire latestEntity() {

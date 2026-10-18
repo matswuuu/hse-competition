@@ -43,6 +43,9 @@ import org.springframework.web.server.ResponseStatusException;
 @Service
 public class PlanService {
 
+    /** Replacement keeps the meal's calories within this share (§4.7: близкое КБЖУ ±10%). */
+    private static final double REPLACEMENT_TOLERANCE = 0.10;
+
     private static final Logger log = LoggerFactory.getLogger(PlanService.class);
 
     private final MealPlanRepository planRepository;
@@ -213,24 +216,43 @@ public class PlanService {
         };
         NutritionFacts current = nutritionService.factsForEntities(ingredientRepository.findByMealId(mealId));
         Map<String, Product> productIndex = nutritionService.productIndex();
-        PlannedMeal alt = null;
-        for (int seed = 0; seed < 10; seed++) {
-            PlannedMeal candidate;
-            try {
-                candidate = demoPlanner.alternative(
-                        meal.getMealType(), exclusions, maxMinutes, meal.getDishName(), seed);
-            } catch (PlannerException e) {
-                break;
+        // What the day still needs once this meal is removed: the replacement is fitted to it,
+        // so the day total stays on target while the other meals keep their portions.
+        PlanDay day = meal.getPlanDay();
+        NutritionFacts dayTarget = new NutritionFacts(
+                day.getTargetKcal(), day.getTargetProteinG(), day.getTargetFatG(), day.getTargetCarbsG());
+        NutritionFacts others = NutritionFacts.ZERO;
+        for (MealEntry other : mealRepository.findByDayIdOrdered(day.getId())) {
+            if (!other.getId().equals(mealId)) {
+                others = others.add(nutritionService.factsForEntities(ingredientRepository.findByMealId(other.getId())));
             }
+        }
+        NutritionFacts remaining = new NutritionFacts(
+                Math.max(dayTarget.kcal() - others.kcal(), 0),
+                Math.max(dayTarget.proteinG() - others.proteinG(), 0),
+                Math.max(dayTarget.fatG() - others.fatG(), 0),
+                Math.max(dayTarget.carbsG() - others.carbsG(), 0));
+        // Never make the day worse than it already is.
+        double allowedDayDeviation =
+                Math.max(properties.getTolerancePct(), others.add(current).maxDeviationPct(dayTarget));
+
+        PlannedMeal alt = null;
+        double bestDeviation = Double.MAX_VALUE;
+        for (PlannedMeal candidate : demoPlanner.alternatives(
+                meal.getMealType(), exclusions, maxMinutes, meal.getDishName())) {
             NutritionFacts base = nutritionService.factsFor(candidate.ingredients(), productIndex);
             if (base.kcal() <= 0 || current.kcal() <= 0) {
                 continue;
             }
-            PlannedMeal fitted = demoPlanner.fitSingle(candidate, current);
+            // Templates are base portions while planned meals are scaled to the day, so match
+            // kcal first; per-ingredient fitting (bounded factors) then tunes the macros.
+            PlannedMeal fitted = demoPlanner.fitSingle(candidate.scaled(current.kcal() / base.kcal()), remaining);
             NutritionFacts fittedFacts = nutritionService.factsFor(fitted.ingredients(), productIndex);
-            if (fittedFacts.maxDeviationPct(current) <= 10.0) {
+            double dayDeviation = others.add(fittedFacts).maxDeviationPct(dayTarget);
+            boolean kcalClose = Math.abs(fittedFacts.kcal() - current.kcal()) <= current.kcal() * REPLACEMENT_TOLERANCE;
+            if (kcalClose && dayDeviation <= allowedDayDeviation && dayDeviation < bestDeviation) {
                 alt = fitted;
-                break;
+                bestDeviation = dayDeviation;
             }
         }
         if (alt == null) {

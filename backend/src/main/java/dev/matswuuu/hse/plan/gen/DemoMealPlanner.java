@@ -1,6 +1,7 @@
 package dev.matswuuu.hse.plan.gen;
 
 import dev.matswuuu.hse.food.Product;
+import dev.matswuuu.hse.nutrition.NutritionProperties;
 import dev.matswuuu.hse.nutrition.NutritionTarget;
 import dev.matswuuu.hse.plan.ExclusionMatcher;
 import dev.matswuuu.hse.plan.MealType;
@@ -8,6 +9,7 @@ import dev.matswuuu.hse.plan.PlanNutritionService;
 import dev.matswuuu.hse.plan.dto.NutritionFacts;
 import dev.matswuuu.hse.questionnaire.CookingTime;
 import dev.matswuuu.hse.questionnaire.Questionnaire;
+
 import java.util.ArrayList;
 import java.util.Comparator;
 import java.util.HashMap;
@@ -15,14 +17,15 @@ import java.util.HashSet;
 import java.util.List;
 import java.util.Map;
 import java.util.Set;
+
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
 
 /**
- * Deterministic code-only planner: template dishes + portion scaling to the target.
- * Always available — the §4.3 fallback when the LLM API is unreachable,
+ * Deterministic code-only planner: template dishes + portion scaling to the
+ * target. Always available — the §4.3 fallback when the LLM API is unreachable,
  * and the source of the demo-account plan (§6).
  */
 @Service
@@ -31,10 +34,22 @@ public class DemoMealPlanner implements MealPlanner {
 
     private static final Logger log = LoggerFactory.getLogger(DemoMealPlanner.class);
 
-    private final PlanNutritionService nutritionService;
+    /**
+     * Meal-quota penalty weights tried in order; lower weights favour the day
+     * total over meal balance.
+     */
+    private static final double[] QUOTA_WEIGHTS = {0.35, 0.15, 0.05, 0.0};
 
-    public DemoMealPlanner(PlanNutritionService nutritionService) {
+    private static final double[] FIT_STEPS = {
+            0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5, 1.75, 2.0, 2.4
+    };
+
+    private final PlanNutritionService nutritionService;
+    private final NutritionProperties properties;
+
+    public DemoMealPlanner(PlanNutritionService nutritionService, NutritionProperties properties) {
         this.nutritionService = nutritionService;
+        this.properties = properties;
     }
 
     @Override
@@ -84,25 +99,52 @@ public class DemoMealPlanner implements MealPlanner {
         return days;
     }
 
-    /** Kcal/macro share of the day target per meal slot count. */
+    /**
+     * Kcal/macro share of the day target per meal slot count.
+     */
     private static double[] quotas(int mealCount) {
         return switch (mealCount) {
-            case 3 -> new double[] {0.30, 0.40, 0.30};
-            case 4 -> new double[] {0.25, 0.35, 0.10, 0.30};
-            case 5 -> new double[] {0.25, 0.10, 0.30, 0.10, 0.25};
-            default -> throw new IllegalArgumentException("mealsPerDay must be 3-5");
+            case 3 -> new double[]{0.30, 0.40, 0.30};
+            case 4 -> new double[]{0.25, 0.35, 0.10, 0.30};
+            case 5 -> new double[]{0.25, 0.10, 0.30, 0.10, 0.25};
+            default ->
+                    throw new IllegalArgumentException("mealsPerDay must be 3-5");
         };
     }
 
     /**
-     * Day-level portion fitting ("подбор порций" per §4.3): per-ingredient factors
-     * found by coordinate descent. Score = day deviation vs target + a penalty
-     * pulling each meal toward its quota share, so meals compensate each other
-     * while portions stay sane.
+     * Day-level portion fitting ("подбор порций" per §4.3). Prefers balanced
+     * meals, but relaxes the meal-quota penalty step by step until the day
+     * lands inside the tolerance, keeping a safety margin for gram rounding.
      */
     private List<PlannedMeal> fitDay(
             List<PlannedMeal> meals, NutritionFacts target, double[] quotaShares,
             Map<String, Product> index) {
+        double goal = properties.getTolerancePct() * 0.8;
+        List<PlannedMeal> best = meals;
+        double bestDeviation = Double.MAX_VALUE;
+        for (double weight : QUOTA_WEIGHTS) {
+            List<PlannedMeal> fitted = fitDay(meals, target, quotaShares, index, weight);
+            double deviation = totalOf(fitted, index).maxDeviationPct(target);
+            if (deviation < bestDeviation) {
+                best = fitted;
+                bestDeviation = deviation;
+            }
+            if (deviation <= goal) {
+                break;
+            }
+        }
+        return best;
+    }
+
+    /**
+     * Per-ingredient factors found by coordinate descent. Score = day deviation
+     * vs target + a weighted penalty pulling each meal toward its quota share,
+     * so meals compensate each other while portions stay sane.
+     */
+    private List<PlannedMeal> fitDay(
+            List<PlannedMeal> meals, NutritionFacts target, double[] quotaShares,
+            Map<String, Product> index, double quotaWeight) {
         List<FitEntry> items = new ArrayList<>();
         for (int m = 0; m < meals.size(); m++) {
             List<PlannedIngredient> ings = meals.get(m).ingredients();
@@ -134,17 +176,16 @@ public class DemoMealPlanner implements MealPlanner {
                     target.fatG() * quotaShares[m],
                     target.carbsG() * quotaShares[m]);
         }
-        double[] steps = {0.3, 0.45, 0.6, 0.75, 0.9, 1.0, 1.15, 1.3, 1.5, 1.75, 2.0, 2.4};
         double[] factors = new double[items.size()];
         java.util.Arrays.fill(factors, 1.0);
-        for (int sweep = 0; sweep < 4; sweep++) {
+        for (int sweep = 0; sweep < 6; sweep++) {
             boolean improved = false;
             for (int k = 0; k < items.size(); k++) {
                 double bestF = factors[k];
-                double bestScore = fitScore(factors, items, meals.size(), target, quotas);
-                for (double f : steps) {
+                double bestScore = fitScore(factors, items, meals.size(), target, quotas, quotaWeight);
+                for (double f : FIT_STEPS) {
                     factors[k] = f;
-                    double score = fitScore(factors, items, meals.size(), target, quotas);
+                    double score = fitScore(factors, items, meals.size(), target, quotas, quotaWeight);
                     if (score < bestScore - 1e-9) {
                         bestScore = score;
                         bestF = f;
@@ -177,7 +218,7 @@ public class DemoMealPlanner implements MealPlanner {
 
     private static double fitScore(
             double[] factors, List<FitEntry> items, int mealCount, NutritionFacts target,
-            NutritionFacts[] quotas) {
+            NutritionFacts[] quotas, double quotaWeight) {
         NutritionFacts[] mealTotals = new NutritionFacts[mealCount];
         for (int m = 0; m < mealCount; m++) {
             mealTotals[m] = NutritionFacts.ZERO;
@@ -192,14 +233,16 @@ public class DemoMealPlanner implements MealPlanner {
             day = day.add(mealTotals[m]);
             mealPenalty += mealTotals[m].maxDeviationPct(quotas[m]);
         }
-        return day.maxDeviationPct(target) + 0.35 * mealPenalty / mealCount;
+        return day.maxDeviationPct(target) + quotaWeight * mealPenalty / mealCount;
     }
 
-    private record FitEntry(int meal, int ing, NutritionFacts base) {}
+    private record FitEntry(int meal, int ing, NutritionFacts base) {
+
+    }
 
     /**
-     * Ingredient groups for portion fitting: 0 = fatty protein, 1 = pure fat,
-     * 2 = carbs, 3 = lean protein (protein-dominant with fat share below 25%).
+     * Ingredient groups for portion fitting: 0 = fatty protein, 1 = pure fat, 2
+     * = carbs, 3 = lean protein (protein-dominant with fat share below 25%).
      */
     private static int dominantGroup(Product product) {
         double p = product.getProteinPer100g() * 4;
@@ -221,14 +264,19 @@ public class DemoMealPlanner implements MealPlanner {
         return 0;
     }
 
-    /** Alternative dish for the same slot, used by dish replacement (§4.7).
-     * Fits a single meal's portions to the given macro target. */
+    /**
+     * Fits a single meal's portions to the given macro target.
+     */
     public PlannedMeal fitSingle(PlannedMeal meal, NutritionFacts target) {
-        return fitDay(List.of(meal), target, new double[] {1.0}, nutritionService.productIndex()).get(0);
+        return fitDay(List.of(meal), target, new double[]{1.0}, nutritionService.productIndex()).get(0);
     }
 
-    /** Alternative dish for the same slot, used by dish replacement (§4.7). */    public PlannedMeal alternative(
-            MealType slot, Set<String> exclusions, int maxMinutes, String exceptDish, int seed) {
+    /**
+     * All dishes that could replace {@code exceptDish} in the slot (§4.7): no
+     * exclusions, within the cooking-time limit when any such dish exists.
+     */
+    public List<PlannedMeal> alternatives(
+            MealType slot, Set<String> exclusions, int maxMinutes, String exceptDish) {
         Map<String, Product> index = nutritionService.productIndex();
         List<DishTemplate> pool = TEMPLATES.stream()
                 .filter(t -> fitsSlot(t, slot))
@@ -242,12 +290,13 @@ public class DemoMealPlanner implements MealPlanner {
         }
         List<DishTemplate> timely = ok.stream().filter(t -> t.minutes <= maxMinutes).toList();
         List<DishTemplate> source = timely.isEmpty() ? ok : timely;
-        return source.get(Math.abs(seed) % source.size()).toMeal(slot);
+        return source.stream().map(t -> t.toMeal(slot)).toList();
     }
 
     /**
-     * Picks a dish whose macro profile (calorie shares) best complements the day composed so far.
-     * Rotates among the 3 best-scoring dishes for variety across days.
+     * Picks a dish whose macro profile (calorie shares) best complements the
+     * day composed so far. Rotates among the 3 best-scoring dishes for variety
+     * across days.
      */
     private PlannedMeal pickBalanced(
             MealType slot, NutritionFacts target, List<PlannedMeal> picked,
@@ -300,7 +349,10 @@ public class DemoMealPlanner implements MealPlanner {
         return choice.get(Math.abs(day + slotIdx + round) % width).toMeal(slot);
     }
 
-    /** Distance between macro calorie-share profiles (protein/fat/carbs shares sum to ~1). */
+    /**
+     * Distance between macro calorie-share profiles (protein/fat/carbs shares
+     * sum to ~1).
+     */
     private static double shareDistance(NutritionFacts actual, NutritionFacts target) {
         return Math.abs(shareP(actual) - shareP(target))
                 + Math.abs(shareF(actual) - shareF(target))
@@ -326,14 +378,17 @@ public class DemoMealPlanner implements MealPlanner {
         return (slot == MealType.SNACK || slot == MealType.SNACK_2) && template.slots.contains(MealType.SNACK);
     }
 
-    /** Meat, poultry or fish among ingredients (categories from the product DB). */
+    /**
+     * Meat, poultry or fish among ingredients (categories from the product
+     * DB).
+     */
     private static boolean hasAnimalProtein(DishTemplate template, Map<String, Product> index) {
         for (PlannedIngredient ingredient : template.ingredients) {
             Product product = index.get(ingredient.productName().strip().toLowerCase());
             if (product != null
                     && (product.getCategory().equals("мясо")
-                            || product.getCategory().equals("птица")
-                            || product.getCategory().equals("рыба"))) {
+                    || product.getCategory().equals("птица")
+                    || product.getCategory().equals("рыба"))) {
                 return true;
             }
         }
@@ -398,16 +453,19 @@ public class DemoMealPlanner implements MealPlanner {
     }
 
     private record DishTemplate(
-            String dishName, Set<MealType> slots, int minutes, List<PlannedIngredient> ingredients,
+            String dishName, Set<MealType> slots, int minutes,
+            List<PlannedIngredient> ingredients,
             List<String> steps) {
+
         DishTemplate(String dishName, MealType slot, int minutes, List<PlannedIngredient> ingredients,
-                List<String> steps) {
+                     List<String> steps) {
             this(dishName, Set.of(slot), minutes, ingredients, steps);
         }
 
         PlannedMeal toMeal(MealType slot) {
             return new PlannedMeal(slot, dishName, minutes, ingredients, steps);
         }
+
     }
 
     private static PlannedIngredient ing(String product, double grams) {
@@ -823,4 +881,5 @@ public class DemoMealPlanner implements MealPlanner {
                     5,
                     List.of(ing("Миндаль", 30), ing("Банан", 120)),
                     List.of("Выложите миндаль и нарезанный банан на тарелку.")));
+
 }

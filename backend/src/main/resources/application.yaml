@@ -44,10 +44,10 @@ nutrition:
     GAIN: 1.0
     MAINTAIN: 1.0
     LOSE: 0.9
-  carbs-g-per-kg:
-    GAIN: 5.0
-    MAINTAIN: 4.0
-    LOSE: 3.0
+  # Carbs are not per-kg: they fill the calories left after protein and fat,
+  # so kcal and macros always agree (4/9/4 kcal per g).
+  min-carbs-g-per-kg: 2.0
+  min-fat-g-per-kg: 0.6
   training-day-carbs-extra-g-per-kg: 1.0
   min-calories:
     MALE: 1500.0

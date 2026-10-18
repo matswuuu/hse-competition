@@ -38,9 +38,14 @@ public class NutritionProperties {
     private Map<Goal, Double> fatGPerKg = Map.of(
             Goal.GAIN, 1.0, Goal.MAINTAIN, 1.0, Goal.LOSE, 0.9);
 
-    /** Target carb grams per kg of body weight on rest days, per goal. */
-    private Map<Goal, Double> carbsGPerKg = Map.of(
-            Goal.GAIN, 5.0, Goal.MAINTAIN, 4.0, Goal.LOSE, 3.0);
+    /**
+     * Carbs fill the calories left after protein and fat, but never drop below this
+     * (g per kg); fat gives way first, down to {@link #minFatGPerKg}.
+     */
+    private double minCarbsGPerKg = 2.0;
+
+    /** Lowest fat (g per kg) when calories are too tight for protein + fat + minimum carbs. */
+    private double minFatGPerKg = 0.6;
 
     /** Extra carbs (g per kg) on training days. */
     private double trainingDayCarbsExtraGPerKg = 1.0;

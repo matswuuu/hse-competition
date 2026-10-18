@@ -18,13 +18,17 @@ import java.math.BigDecimal;
 import java.time.Instant;
 import java.util.HashSet;
 import java.util.Set;
+
+import lombok.AllArgsConstructor;
+import lombok.Builder;
 import lombok.Getter;
 import lombok.Setter;
 import org.hibernate.annotations.CreationTimestamp;
 
-/** User profile questionnaire, 2–3 minutes to fill (§4.1). Latest entry per user wins. */
 @Entity
 @Table(name = "questionnaires")
+@Builder
+@AllArgsConstructor
 @Getter
 @Setter
 public class Questionnaire {
@@ -94,5 +98,8 @@ public class Questionnaire {
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt;
 
-    public Questionnaire() {}
+    public Questionnaire() {
+
+    }
+
 }

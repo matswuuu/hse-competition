@@ -4,6 +4,7 @@ import dev.matswuuu.hse.user.UserRepository;
 import jakarta.servlet.DispatcherType;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configuration.EnableWebSecurity;
@@ -42,6 +43,9 @@ public class SecurityConfig {
                 .authorizeHttpRequests(auth -> auth.dispatcherTypeMatchers(DispatcherType.ERROR)
                         .permitAll()
                         .requestMatchers("/api/users/signup", "/api/users/login")
+                        .permitAll()
+                        // Data source attribution is shown on public pages (§4.4).
+                        .requestMatchers(HttpMethod.GET, "/api/products/source")
                         .permitAll()
                         .anyRequest()
                         .authenticated())

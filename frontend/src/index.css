@@ -46,6 +46,7 @@ a {
 }
 
 .header {
+  position: relative;
   display: flex;
   align-items: center;
   justify-content: space-between;
@@ -83,8 +84,16 @@ a {
 
 .nav a.nav-user,
 .nav-user {
+  max-width: 12rem;
+  overflow: hidden;
   color: var(--fg);
   font-weight: 500;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.menu-toggle {
+  display: none;
 }
 
 .link-button {
@@ -124,12 +133,15 @@ a {
 }
 
 .auth-form input {
+  width: 100%;
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg);
   color: var(--fg);
   font: inherit;
+  /* 16px keeps iOS Safari from zooming in on focus. */
+  font-size: 1rem;
   font-weight: 400;
 }
 
@@ -345,18 +357,20 @@ a {
 }
 
 .questionnaire select {
+  width: 100%;
   padding: 0.625rem 0.75rem;
   border: 1px solid var(--border);
   border-radius: 8px;
   background: var(--bg);
   color: var(--fg);
   font: inherit;
+  font-size: 1rem;
   font-weight: 400;
 }
 
 .field-row {
   display: grid;
-  grid-template-columns: repeat(auto-fit, minmax(120px, 1fr));
+  grid-template-columns: repeat(3, minmax(0, 1fr));
   gap: 1rem;
 }
 
@@ -368,6 +382,19 @@ a {
   display: flex;
   flex-wrap: wrap;
   gap: 0.5rem;
+}
+
+.chips-week {
+  display: grid;
+  grid-template-columns: repeat(7, minmax(0, 1fr));
+  gap: 0.375rem;
+}
+
+.chips-week span {
+  display: block;
+  width: 100%;
+  padding-inline: 0;
+  text-align: center;
 }
 
 .auth-form .chip {
@@ -409,6 +436,8 @@ a {
 }
 
 .auth-form .checkbox input {
+  flex-shrink: 0;
+  width: auto;
   margin: 0.2rem 0 0;
   accent-color: var(--accent);
 }
@@ -641,13 +670,20 @@ button.button {
 
 .day-tabs {
   display: grid;
-  grid-template-columns: repeat(7, minmax(3.25rem, 1fr));
+  grid-template-columns: repeat(7, minmax(3.5rem, 1fr));
   gap: 0.5rem;
   overflow-x: auto;
+  scroll-snap-type: x proximity;
+  scrollbar-width: none;
+}
+
+.day-tabs::-webkit-scrollbar {
+  display: none;
 }
 
 .day-tab {
   position: relative;
+  scroll-snap-align: center;
   display: flex;
   flex-direction: column;
   align-items: center;
@@ -866,4 +902,489 @@ button.button {
 .shopping-list h4 {
   margin-bottom: 0.25rem;
   text-transform: capitalize;
+}
+
+/* ---------- Small screens ---------- */
+
+@media (max-width: 640px) {
+  .header {
+    padding: 0.75rem 1rem;
+  }
+
+  .menu-toggle {
+    display: flex;
+    flex-direction: column;
+    justify-content: center;
+    gap: 5px;
+    width: 2.5rem;
+    height: 2.5rem;
+    margin-right: -0.5rem;
+    padding: 0.5rem;
+    border: none;
+    background: none;
+    cursor: pointer;
+  }
+
+  .menu-toggle span {
+    display: block;
+    height: 2px;
+    border-radius: 1px;
+    background: var(--fg);
+    transition: transform 0.2s, opacity 0.2s;
+  }
+
+  .menu-toggle.open span:nth-child(1) {
+    transform: translateY(7px) rotate(45deg);
+  }
+
+  .menu-toggle.open span:nth-child(2) {
+    opacity: 0;
+  }
+
+  .menu-toggle.open span:nth-child(3) {
+    transform: translateY(-7px) rotate(-45deg);
+  }
+
+  .nav {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    left: 0;
+    z-index: 10;
+    display: none;
+    flex-direction: column;
+    align-items: stretch;
+    gap: 0;
+    padding: 0.5rem 0;
+    border-bottom: 1px solid var(--border);
+    background: var(--bg);
+    box-shadow: 0 8px 16px rgb(0 0 0 / 0.08);
+  }
+
+  .nav.open {
+    display: flex;
+  }
+
+  .nav a,
+  .nav .link-button {
+    padding: 0.75rem 1rem;
+    font-size: 1rem;
+    text-align: left;
+  }
+
+  .nav a.nav-user {
+    order: -1;
+    max-width: none;
+    border-bottom: 1px solid var(--border);
+  }
+
+  .main {
+    padding: 1.25rem 1rem 2rem;
+  }
+
+  .footer {
+    flex-direction: column;
+    align-items: flex-start;
+    padding: 1rem;
+  }
+
+  .auth {
+    margin: 0.5rem auto 1rem;
+  }
+
+  .landing {
+    gap: 2.5rem;
+  }
+
+  .hero {
+    padding-top: 0.5rem;
+  }
+
+  .hero .hero-lead {
+    font-size: 1rem;
+  }
+
+  .hero-actions {
+    flex-direction: column;
+    align-items: stretch;
+    margin-top: 1.5rem;
+  }
+
+  .hero-actions .button,
+  .landing-cta .button {
+    text-align: center;
+  }
+
+  .landing-cta {
+    align-items: stretch;
+    padding: 1.75rem 1rem;
+  }
+
+  .landing h2 {
+    margin-bottom: 1rem;
+  }
+
+  .field-row {
+    gap: 0.5rem;
+  }
+
+  .profile-header h1 {
+    font-size: 1.375rem;
+    overflow-wrap: anywhere;
+  }
+
+  .avatar {
+    width: 3rem;
+    height: 3rem;
+    font-size: 1.25rem;
+  }
+
+  .profile-grid {
+    grid-template-columns: 1fr;
+  }
+
+  .panel {
+    padding: 1rem;
+  }
+
+  .empty-state .button {
+    align-self: stretch;
+  }
+
+  /* Bleed the day strip to the screen edges so it scrolls naturally. */
+  .day-tabs {
+    grid-template-columns: repeat(7, 3.5rem);
+    gap: 0.375rem;
+    margin-inline: -1rem;
+    padding-inline: 1rem;
+    scroll-padding-inline: 1rem;
+  }
+
+  .macro-bars {
+    grid-template-columns: repeat(2, minmax(0, 1fr));
+  }
+
+  .meal-summary {
+    padding: 0.75rem 0.875rem 0.75rem 0.75rem;
+  }
+
+  .meal-details {
+    padding: 0.75rem 0.875rem 0.875rem;
+  }
+
+  .meal-details .button {
+    align-self: stretch;
+    text-align: center;
+  }
+
+  .legal h1 {
+    font-size: 1.625rem;
+    overflow-wrap: anywhere;
+  }
+
+  .legal h2 {
+    margin-top: 1.5rem;
+    font-size: 1.125rem;
+  }
+}
+
+/* ---------- Disclaimers & attribution ---------- */
+
+.disclaimer {
+  padding: 0.875rem 1rem;
+  border: 1px solid #f59e0b55;
+  border-radius: 12px;
+  background: #f59e0b14;
+  font-size: 0.875rem;
+  line-height: 1.5;
+}
+
+.disclaimer strong {
+  font-weight: 600;
+}
+
+.auth-form .hint.notice {
+  margin-bottom: 0.25rem;
+  font-size: 0.8125rem;
+}
+
+.footer-disclaimer {
+  flex-basis: 100%;
+  margin: 0;
+}
+
+.product-source a,
+.footer .product-source a {
+  color: inherit;
+  text-decoration: underline;
+  text-underline-offset: 2px;
+}
+
+/* ---------- Plan: view switch, week overview, warnings ---------- */
+
+.plan-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.5rem;
+}
+
+.segmented {
+  display: inline-flex;
+  padding: 2px;
+  border: 1px solid var(--border);
+  border-radius: 8px;
+}
+
+.segmented button {
+  padding: 0.3rem 0.875rem;
+  border: none;
+  border-radius: 6px;
+  background: none;
+  color: var(--muted);
+  font: inherit;
+  font-size: 0.875rem;
+  font-weight: 500;
+  cursor: pointer;
+}
+
+.segmented button[aria-selected='true'] {
+  background: var(--accent);
+  color: #fff;
+}
+
+.week-overview {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+  margin: 0;
+  padding: 0;
+  list-style: none;
+}
+
+.week-day {
+  display: flex;
+  gap: 1rem;
+  width: 100%;
+  padding: 0.875rem 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  background: none;
+  color: inherit;
+  font: inherit;
+  text-align: left;
+  cursor: pointer;
+}
+
+.week-day:hover {
+  border-color: var(--accent);
+}
+
+.week-day-date {
+  display: flex;
+  flex-direction: column;
+  flex-shrink: 0;
+  width: 3.5rem;
+  font-size: 0.8125rem;
+}
+
+.week-day-date .day-tab-weekday {
+  font-size: 1rem;
+}
+
+.week-day-body {
+  display: flex;
+  flex: 1;
+  flex-direction: column;
+  gap: 0.375rem;
+  min-width: 0;
+}
+
+.week-day-head {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 0.375rem;
+}
+
+.week-day-kcal {
+  margin-left: auto;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}
+
+.week-day .macro-track,
+.week-day .macro-fill {
+  display: block;
+}
+
+.week-day-meals {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.125rem 0.75rem;
+  font-size: 0.875rem;
+}
+
+.week-day-meals .eaten {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+.week-day-progress {
+  font-size: 0.75rem;
+}
+
+.badge-warn {
+  border-color: #dc2626;
+  color: #dc2626;
+}
+
+.tolerance-warning {
+  padding: 0.625rem 0.875rem;
+  border-radius: 8px;
+  background: #dc262614;
+  color: #dc2626;
+  font-size: 0.875rem;
+}
+
+.day-tab-warn {
+  position: absolute;
+  top: 0.375rem;
+  left: 0.375rem;
+  width: 0.4rem;
+  height: 0.4rem;
+  border-radius: 50%;
+  background: #dc2626;
+}
+
+.generating {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 1rem;
+  border: 1px solid var(--border);
+  border-radius: 12px;
+  color: var(--muted);
+  font-size: 0.9375rem;
+}
+
+.spinner {
+  flex-shrink: 0;
+  width: 1.25rem;
+  height: 1.25rem;
+  border: 2px solid var(--border);
+  border-top-color: var(--accent);
+  border-radius: 50%;
+  animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spinner {
+    animation-duration: 2.4s;
+  }
+}
+
+/* ---------- Shopping list "куплено" ---------- */
+
+.shopping-item {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  min-width: 0;
+  cursor: pointer;
+}
+
+.shopping-item input {
+  flex-shrink: 0;
+  margin: 0;
+  accent-color: #16a34a;
+}
+
+.ingredients li.bought .shopping-item span {
+  color: var(--muted);
+  text-decoration: line-through;
+}
+
+/* ---------- Photo mockup (§4.9) ---------- */
+
+.photo-teaser {
+  display: flex;
+  align-items: center;
+  gap: 0.75rem;
+  padding: 0.875rem 1rem;
+  border: 1px dashed var(--border);
+  border-radius: 12px;
+  color: var(--fg);
+  font-size: 0.9375rem;
+}
+
+.photo-teaser span:nth-child(2) {
+  flex: 1;
+}
+
+.photo-page .badge {
+  display: inline-block;
+}
+
+.photo-drop {
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 1rem;
+  padding: 2rem 1rem;
+  border: 2px dashed var(--border);
+  border-radius: 12px;
+  text-align: center;
+}
+
+.photo-actions {
+  display: flex;
+  flex-wrap: wrap;
+  justify-content: center;
+  gap: 0.5rem;
+}
+
+.photo-actions label.button {
+  cursor: pointer;
+}
+
+.photo-preview {
+  display: block;
+  width: 100%;
+  max-width: 320px;
+  aspect-ratio: 1;
+  margin: 0 auto;
+  border-radius: 12px;
+  object-fit: cover;
+}
+
+@media (max-width: 640px) {
+  .plan-actions {
+    width: 100%;
+    justify-content: space-between;
+  }
+
+  .week-day {
+    gap: 0.75rem;
+    padding: 0.75rem;
+  }
+
+  .week-day-date {
+    width: 2.75rem;
+  }
+
+  .photo-actions {
+    flex-direction: column;
+    align-self: stretch;
+  }
+
+  .photo-actions .button {
+    text-align: center;
+  }
 }

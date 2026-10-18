@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useState } from 'react'
+import { useCallback, useEffect, useRef, useState } from 'react'
 import { Link, Navigate } from 'react-router'
 import { ApiError } from '@/api/client'
 import * as plansApi from '@/api/plans'
@@ -9,6 +9,8 @@ import { useAuth } from '@/auth/context'
 import MacroBars from '@/components/plan/MacroBars'
 import MealCard from '@/components/plan/MealCard'
 import ShoppingList from '@/components/plan/ShoppingList'
+import WeekOverview from '@/components/plan/WeekOverview'
+import Disclaimer from '@/components/Disclaimer'
 import { longDate, round, shortDate, weekday } from '@/components/plan/format'
 import { ACTIVITY_OPTIONS, COOKING_OPTIONS, GOAL_OPTIONS, labelOf } from '@/labels'
 
@@ -28,17 +30,27 @@ async function orNull<T>(promise: Promise<T>): Promise<T | null> {
   }
 }
 
-const memberSince = new Intl.DateTimeFormat('ru-RU', { month: 'long', year: 'numeric' })
+// Day + month gives the genitive form ("17 октября"), which reads right after "с".
+const memberSince = new Intl.DateTimeFormat('ru-RU', { day: 'numeric', month: 'long', year: 'numeric' })
 
 export default function ProfilePage() {
   const { user } = useAuth()
   const [profile, setProfile] = useState<Profile>({ status: 'loading' })
   const [selectedDay, setSelectedDay] = useState(0)
+  const [view, setView] = useState<'week' | 'day'>('week')
   const [generating, setGenerating] = useState(false)
   const [generateError, setGenerateError] = useState<string | null>(null)
   const [showShopping, setShowShopping] = useState(false)
   // Bumped on every plan change so the shopping list refetches.
   const [weekVersion, setWeekVersion] = useState(0)
+  const dayTabsRef = useRef<HTMLDivElement>(null)
+
+  // On narrow screens the day strip scrolls; keep the selected day visible.
+  useEffect(() => {
+    dayTabsRef.current
+      ?.querySelector<HTMLElement>('.day-tab.active')
+      ?.scrollIntoView({ inline: 'center', block: 'nearest' })
+  }, [selectedDay, profile.status, view])
 
   useEffect(() => {
     if (!user) return
@@ -104,6 +116,7 @@ export default function ProfilePage() {
     try {
       setWeek(await plansApi.generate())
       setSelectedDay(0)
+      setView('week')
       setShowShopping(false)
     } catch (err) {
       setGenerateError(
@@ -267,20 +280,39 @@ export default function ProfilePage() {
         </section>
       </div>
 
+      <Disclaimer />
+
       <section className="plan">
         <div className="panel-head">
           <h2>План на неделю</h2>
           {week && (
-            <button
-              type="button"
-              className="button button-secondary button-small"
-              onClick={generate}
-              disabled={generating}
-            >
-              {generating ? 'Составляем…' : 'Составить заново'}
-            </button>
+            <div className="plan-actions">
+              <div className="segmented" role="tablist" aria-label="Вид плана">
+                <button type="button" role="tab" aria-selected={view === 'week'} onClick={() => setView('week')}>
+                  Неделя
+                </button>
+                <button type="button" role="tab" aria-selected={view === 'day'} onClick={() => setView('day')}>
+                  День
+                </button>
+              </div>
+              <button
+                type="button"
+                className="button button-secondary button-small"
+                onClick={generate}
+                disabled={generating}
+              >
+                {generating ? 'Составляем…' : 'Составить заново'}
+              </button>
+            </div>
           )}
         </div>
+
+        {generating && (
+          <div className="generating" role="status">
+            <span className="spinner" aria-hidden />
+            <span>Составляем план и пересчитываем КБЖУ по базе продуктов — это может занять до минуты</span>
+          </div>
+        )}
 
         {generateError && (
           <p className="form-error" role="alert">
@@ -288,18 +320,28 @@ export default function ProfilePage() {
           </p>
         )}
 
-        {!week && (
+        {!week && !generating && (
           <div className="panel empty-state">
             <p className="muted">Плана пока нет. Мы составим меню на 7 дней по вашей анкете.</p>
-            <button type="button" className="button" onClick={generate} disabled={generating}>
-              {generating ? 'Составляем план… это может занять до минуты' : 'Составить план'}
+            <button type="button" className="button" onClick={generate}>
+              Составить план
             </button>
           </div>
         )}
 
-        {week && day && (
+        {week && view === 'week' && (
+          <WeekOverview
+            week={week}
+            onOpenDay={(i) => {
+              setSelectedDay(i)
+              setView('day')
+            }}
+          />
+        )}
+
+        {week && day && view === 'day' && (
           <>
-            <div className="day-tabs" role="tablist">
+            <div className="day-tabs" role="tablist" ref={dayTabsRef}>
               {week.days.map((d, i) => {
                 const done = d.meals.length > 0 && d.meals.every((m) => m.eaten)
                 return (
@@ -314,6 +356,7 @@ export default function ProfilePage() {
                     <span className="day-tab-weekday">{weekday(d.date)}</span>
                     <span className="day-tab-date">{shortDate(d.date)}</span>
                     {d.trainingDay && <span className="day-tab-dot" title="Тренировка" />}
+                    {!d.withinTolerance && <span className="day-tab-warn" title="Вне допуска по КБЖУ" />}
                   </button>
                 )
               })}
@@ -327,6 +370,12 @@ export default function ProfilePage() {
                 </span>
               </div>
               <MacroBars totals={day.totals} targets={day.targets} />
+              {!day.withinTolerance && (
+                <p className="tolerance-warning" role="status">
+                  КБЖУ дня отличается от цели на {day.deviationPct}% — больше допустимого. Попробуйте заменить блюдо
+                  или составить план заново.
+                </p>
+              )}
               <div className="meals">
                 {day.meals.map((meal) => (
                   <MealCard
@@ -339,6 +388,11 @@ export default function ProfilePage() {
               </div>
             </div>
 
+          </>
+        )}
+
+        {week && (
+          <>
             <div className="panel">
               <div className="panel-head">
                 <h3>Список покупок на неделю</h3>
@@ -347,8 +401,13 @@ export default function ProfilePage() {
                 </button>
               </div>
               {/* Remount on plan changes so the list refetches. */}
-              {showShopping && <ShoppingList key={weekVersion} />}
+              {showShopping && <ShoppingList key={weekVersion} planId={week.planId} />}
             </div>
+            <Link to="/photo" className="photo-teaser">
+              <span className="badge">Скоро</span>
+              <span>Расчёт калорий по фото — посмотреть, как это будет работать</span>
+              <span aria-hidden>→</span>
+            </Link>
           </>
         )}
       </section>

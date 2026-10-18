@@ -155,7 +155,7 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
 
       <fieldset>
         <legend>Дни тренировок</legend>
-        <div className="chips">
+        <div className="chips chips-week">
           {WEEKDAYS.map((label, i) => (
             <Chip
               key={label}
@@ -195,6 +195,10 @@ export default function QuestionnaireForm({ initial, submitLabel = 'Готово
 
       <fieldset>
         <legend>Не ем</legend>
+        <span className="hint notice">
+          Мы не учитываем диагнозы и пищевую аллергию. Если они у вас есть, обсудите рацион с врачом перед
+          использованием плана.
+        </span>
         <div className="chips">
           {EXCLUSION_TAGS.map((tag) => (
             <Chip

@@ -13,7 +13,6 @@ import java.time.LocalDate;
 import lombok.Getter;
 import lombok.Setter;
 
-/** One day of a meal plan with its calorie/macro goal (§4.5: day total vs target). */
 @Entity
 @Table(name = "plan_days")
 @Getter
@@ -49,5 +48,8 @@ public class PlanDay {
     @Column(name = "target_carbs_g", nullable = false)
     private double targetCarbsG;
 
-    protected PlanDay() {}
+    protected PlanDay() {
+
+    }
+    
 }
