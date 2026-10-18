@@ -16,7 +16,7 @@ spring:
       genai:
         api-key: ${GEMINI_API_KEY}
         chat:
-          model: ${GEMINI_MODEL:gemini-2.5-flash}
+          model: ${GEMINI_MODEL:gemini-3.8-flash}
 
 nutrition:
   llm:

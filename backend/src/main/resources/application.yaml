@@ -13,6 +13,11 @@ spring:
     username: ${SPRING_DATASOURCE_USERNAME:postgres}
     password: ${SPRING_DATASOURCE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
+  servlet:
+    multipart:
+      # Photos for recognition (§4.9); the web client downscales them, raw phone shots still fit.
+      max-file-size: 15MB
+      max-request-size: 15MB
   jpa:
     hibernate:
       ddl-auto: update

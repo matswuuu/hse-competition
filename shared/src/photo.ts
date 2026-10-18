@@ -1,4 +1,6 @@
-// §4.9 (P2): clickable mockup only — nothing is uploaded or recognised.
+import type {PhotoRecognition} from './api/photo'
+
+// §4.9 (P2): shown when the backend has no vision model configured, and as a demo.
 // Names come from `photo.sample`, in the same order.
 export const PHOTO_SAMPLE = [
   { grams: 180, kcal: 198, p: 7.6, f: 2.0, c: 38.5 },
@@ -7,10 +9,47 @@ export const PHOTO_SAMPLE = [
   { grams: 5, kcal: 45, p: 0, f: 5.0, c: 0 },
 ]
 
-export const PHOTO_TOTAL = PHOTO_SAMPLE.reduce(
-  (acc, i) => ({ kcal: acc.kcal + i.kcal, p: acc.p + i.p, f: acc.f + i.f, c: acc.c + i.c }),
-  { kcal: 0, p: 0, f: 0, c: 0 },
-)
+/** The sample in the same shape as a real recognition result. */
+export function sampleRecognition(names: string[]): PhotoRecognition {
+  const items = PHOTO_SAMPLE.map((i, idx) => ({
+    name: names[idx],
+    productName: names[idx],
+    grams: i.grams,
+    facts: { kcal: i.kcal, proteinG: i.p, fatG: i.f, carbsG: i.c },
+  }))
+  const total = items.reduce(
+    (acc, { facts: f }) => ({
+      kcal: acc.kcal + f.kcal,
+      proteinG: acc.proteinG + f.proteinG,
+      fatG: acc.fatG + f.fatG,
+      carbsG: acc.carbsG + f.carbsG,
+    }),
+    { kcal: 0, proteinG: 0, fatG: 0, carbsG: 0 },
+  )
+  return { items, total }
+}
+
+const MAX_SIDE = 1280
+
+/**
+ * Shrinks a photo to at most 1280 px on the long side as JPEG: phone shots are several MB,
+ * and the model needs far less. Falls back to the original when the browser cannot decode it (e.g. HEIC).
+ */
+export async function downscalePhoto(file: File): Promise<Blob> {
+  try {
+    const bitmap = await createImageBitmap(file)
+    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
+    const canvas = document.createElement('canvas')
+    canvas.width = Math.round(bitmap.width * scale)
+    canvas.height = Math.round(bitmap.height * scale)
+    canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
+    bitmap.close()
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85))
+    return blob ?? file
+  } catch {
+    return file
+  }
+}
 
 /** Sample plate drawing as SVG primitives (element name + attributes). */
 export const SAMPLE_PLATE = {

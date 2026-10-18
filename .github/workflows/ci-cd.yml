@@ -138,7 +138,7 @@ jobs:
           SITE_ADDRESS: ${{ vars.SITE_ADDRESS || 'hse-competition.matswuuu.dev' }}
           # Optional: setting this secret switches the backend to the LLM planner.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
-          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-2.5-flash' }}
+          GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT || 22 }}

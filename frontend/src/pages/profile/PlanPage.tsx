@@ -121,7 +121,7 @@ export default function PlanPage() {
 
       {week && (
         <Link to="/photo" className="photo-teaser">
-          <span className="badge">{t('common.soon')}</span>
+          <span aria-hidden>📷</span>
           <span>{t('plan.photoTeaser')}</span>
           <span aria-hidden>→</span>
         </Link>
