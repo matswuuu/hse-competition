@@ -1,3 +1,7 @@
+server:
+  # Behind Caddy: take scheme/host from X-Forwarded-*, else the site's own requests look cross-origin to CORS.
+  forward-headers-strategy: native
+
 spring:
   application:
     name: hse-competition
