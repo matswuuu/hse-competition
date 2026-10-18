@@ -315,8 +315,10 @@ jobs:
       contents: write
     steps:
       - uses: actions/checkout@v5
+      # Only the app builds: the run also holds docker/build-push-action's .dockerbuild records.
       - uses: actions/download-artifact@v5
         with:
+          pattern: "{android,ios}"
           path: dist
           merge-multiple: true
 
