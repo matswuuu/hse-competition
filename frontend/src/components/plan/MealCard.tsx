@@ -1,61 +1,17 @@
-import { useState } from 'react'
-import { useTranslation } from 'react-i18next'
-import { ApiError } from '@/api/client'
-import * as plansApi from '@/api/plans'
-import type { DishCard, MealSummary } from '@/api/plans'
-import { grams, round } from './format'
+import {useTranslation} from 'react-i18next'
+import type {MealSummary} from '@hse/shared/api/plans'
+import {grams, mealMeta} from '@hse/shared/format'
+import {hostname, useMealCard} from '@hse/shared/hooks/useMealCard'
 
 interface Props {
   meal: MealSummary
   onEatenChange: (eaten: boolean) => void
-  /** Called after the dish was swapped; day totals change, so the parent reloads. */
   onReplaced: () => void
 }
 
 export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
   const { t } = useTranslation()
-  const [open, setOpen] = useState(false)
-  const [card, setCard] = useState<DishCard | null>(null)
-  const [busy, setBusy] = useState(false)
-  const [error, setError] = useState<string | null>(null)
-
-  async function toggleOpen() {
-    const next = !open
-    setOpen(next)
-    if (next && !card) {
-      try {
-        setCard(await plansApi.dish(meal.id))
-      } catch {
-        setError(t('meal.recipeFailed'))
-      }
-    }
-  }
-
-  async function toggleEaten() {
-    setError(null)
-    onEatenChange(!meal.eaten)
-    try {
-      await plansApi.setEaten(meal.id, !meal.eaten)
-    } catch {
-      onEatenChange(meal.eaten)
-      setError(t('meal.eatenFailed'))
-    }
-  }
-
-  async function replace() {
-    setError(null)
-    setBusy(true)
-    try {
-      await plansApi.replace(meal.id)
-      setCard(null)
-      setOpen(false)
-      onReplaced()
-    } catch (err) {
-      setError(err instanceof ApiError && err.status === 404 ? t('meal.noReplacement') : t('meal.replaceFailed'))
-    } finally {
-      setBusy(false)
-    }
-  }
+  const { open, card, busy, error, toggleOpen, toggleEaten, replace } = useMealCard(meal, onEatenChange, onReplaced)
 
   return (
     <article className={`meal-card${meal.eaten ? ' eaten' : ''}`}>
@@ -67,8 +23,7 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
           <span className="meal-type">{t(`options.mealType.${meal.mealType}`)}</span>
           <span className="meal-name">{meal.dishName}</span>
           <span className="meal-meta">
-            {round(meal.facts.kcal)} {t('common.kcal')} · {t('common.p')} {round(meal.facts.proteinG)} · {t('common.f')}{' '}
-            {round(meal.facts.fatG)} · {t('common.c')} {round(meal.facts.carbsG)} · {meal.cookingTimeMin} {t('common.min')}
+            {mealMeta(meal.facts, meal.cookingTimeMin)}
           </span>
         </button>
       </div>
@@ -110,7 +65,7 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
                     {card.recipeUrls.map((url) => (
                       <li key={url}>
                         <a href={url} target="_blank" rel="noopener noreferrer">
-                          {new URL(url).hostname.replace(/^www\./, '')}
+                          {hostname(url)}
                         </a>
                       </li>
                     ))}

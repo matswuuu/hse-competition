@@ -1,10 +1,10 @@
-import { Navigate, Route, Routes } from 'react-router'
+import {Navigate, Route, Routes} from 'react-router'
 import Layout from '@/components/Layout'
 import HomePage from '@/pages/HomePage'
+import LegalPage from '@/pages/LegalPage'
 import LoginPage from '@/pages/LoginPage'
 import NotFoundPage from '@/pages/NotFoundPage'
 import PhotoPage from '@/pages/PhotoPage'
-import PrivacyPage from '@/pages/PrivacyPage'
 import DataPage from '@/pages/profile/DataPage'
 import OverviewPage from '@/pages/profile/OverviewPage'
 import PlanPage from '@/pages/profile/PlanPage'
@@ -12,7 +12,6 @@ import ProfileLayout from '@/pages/profile/ProfileLayout'
 import SettingsPage from '@/pages/profile/SettingsPage'
 import ShoppingPage from '@/pages/profile/ShoppingPage'
 import RegisterPage from '@/pages/RegisterPage'
-import TermsPage from '@/pages/TermsPage'
 
 export default function App() {
   return (
@@ -30,8 +29,8 @@ export default function App() {
         </Route>
         <Route path="settings" element={<Navigate to="/profile/settings" replace />} />
         <Route path="photo" element={<PhotoPage />} />
-        <Route path="terms" element={<TermsPage />} />
-        <Route path="privacy" element={<PrivacyPage />} />
+        <Route path="terms" element={<LegalPage page="terms" />} />
+        <Route path="privacy" element={<LegalPage page="privacy" />} />
         <Route path="*" element={<NotFoundPage />} />
       </Route>
     </Routes>

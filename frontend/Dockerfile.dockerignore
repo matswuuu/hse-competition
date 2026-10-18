@@ -1,0 +1,8 @@
+# Used for builds with the repo root as context (see Dockerfile).
+**/node_modules
+**/dist
+**/.env
+**/.env.*
+backend
+frontend/android
+frontend/ios

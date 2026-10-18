@@ -1,0 +1,8 @@
+{
+  "name": "hse-competition",
+  "private": true,
+  "workspaces": [
+    "shared",
+    "frontend"
+  ]
+}

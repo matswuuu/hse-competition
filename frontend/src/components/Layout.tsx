@@ -1,6 +1,6 @@
-import { useTranslation } from 'react-i18next'
-import { Link, NavLink, Outlet } from 'react-router'
-import { useAuth } from '@/auth/context'
+import {useTranslation} from 'react-i18next'
+import {Link, NavLink, Outlet} from 'react-router'
+import {useAuth} from '@hse/shared/auth/context'
 import ProductSource from '@/components/ProductSource'
 
 const YEAR = new Date().getFullYear()
@@ -18,9 +18,6 @@ export default function Layout() {
         <nav className="nav">
           {user ? (
             <NavLink to="/profile" className="nav-user">
-              <span className="nav-avatar" aria-hidden>
-                {user.username.charAt(0).toUpperCase()}
-              </span>
               <span className="nav-username">{user.username}</span>
             </NavLink>
           ) : (

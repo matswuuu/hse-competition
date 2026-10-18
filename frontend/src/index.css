@@ -1,37 +1,16 @@
 :root {
-  --bg: #ffffff;
-  --fg: #1a1a1a;
-  --muted: #6b6b6b;
-  --border: #e5e5e5;
-  --accent: #2563eb;
-
+  /* Device safe areas (notch, status and gesture bars) in the mobile apps; 0 in browsers.
+     Capacitor injects --safe-area-inset-* on Android WebViews where env() is unreliable. */
+  --inset-top: var(--safe-area-inset-top, env(safe-area-inset-top, 0px));
+  --inset-right: var(--safe-area-inset-right, env(safe-area-inset-right, 0px));
+  --inset-bottom: var(--safe-area-inset-bottom, env(safe-area-inset-bottom, 0px));
+  --inset-left: var(--safe-area-inset-left, env(safe-area-inset-left, 0px));
+  /* Color tokens (--bg, --fg, --accent, …) come from the shared palette; see src/platform.ts. */
   font-family: system-ui, -apple-system, 'Segoe UI', Roboto, sans-serif;
   line-height: 1.5;
   color: var(--fg);
   background: var(--bg);
-  color-scheme: light;
   -webkit-font-smoothing: antialiased;
-}
-
-/* Theme: data-theme="light" | "dark" forces one; no attribute follows the system. */
-@media (prefers-color-scheme: dark) {
-  :root:not([data-theme='light']) {
-    --bg: #121212;
-    --fg: #ededed;
-    --muted: #a0a0a0;
-    --border: #2a2a2a;
-    --accent: #60a5fa;
-    color-scheme: dark;
-  }
-}
-
-:root[data-theme='dark'] {
-  --bg: #121212;
-  --fg: #ededed;
-  --muted: #a0a0a0;
-  --border: #2a2a2a;
-  --accent: #60a5fa;
-  color-scheme: dark;
 }
 
 *,
@@ -43,6 +22,8 @@
 body {
   margin: 0;
   min-height: 100vh;
+  padding-right: var(--inset-right);
+  padding-left: var(--inset-left);
 }
 
 a {
@@ -64,7 +45,7 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 1rem;
-  padding: 1rem 1.5rem;
+  padding: calc(1rem + var(--inset-top)) 1.5rem 1rem;
   border-bottom: 1px solid var(--border);
   background: var(--bg);
 }
@@ -103,19 +84,6 @@ a {
   min-width: 0;
   color: var(--fg);
   font-weight: 500;
-}
-
-.nav-avatar {
-  display: grid;
-  flex-shrink: 0;
-  place-items: center;
-  width: 1.75rem;
-  height: 1.75rem;
-  border-radius: 50%;
-  background: var(--accent);
-  color: #fff;
-  font-size: 0.875rem;
-  font-weight: 700;
 }
 
 .nav-username {
@@ -191,7 +159,7 @@ a {
   border: none;
   border-radius: 8px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font: inherit;
   font-weight: 600;
   cursor: pointer;
@@ -204,7 +172,7 @@ a {
 
 .form-error {
   margin: 0;
-  color: #dc2626;
+  color: var(--danger);
   font-size: 0.875rem;
 }
 
@@ -220,7 +188,7 @@ a {
   border: 1px solid var(--accent);
   border-radius: 8px;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 600;
 }
 
@@ -325,7 +293,7 @@ a {
   height: 2rem;
   border-radius: 50%;
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
   font-weight: 700;
 }
 
@@ -451,7 +419,7 @@ a {
 .chip input:checked + span {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .chip input:focus-visible + span {
@@ -479,7 +447,7 @@ a {
 
 .form-success {
   margin: 0 0 1rem;
-  color: #16a34a;
+  color: var(--success);
   font-size: 0.875rem;
 }
 
@@ -489,7 +457,7 @@ a {
   align-items: center;
   justify-content: space-between;
   gap: 0.5rem 1.5rem;
-  padding: 1.25rem 1.5rem;
+  padding: 1.25rem 1.5rem calc(1.25rem + var(--inset-bottom));
   border-top: 1px solid var(--border);
   color: var(--muted);
   font-size: 0.875rem;
@@ -760,11 +728,11 @@ button.button {
 .day-tab.active {
   border-color: var(--accent);
   background: var(--accent);
-  color: #fff;
+  color: var(--on-accent);
 }
 
 .day-tab.done:not(.active) {
-  border-color: #16a34a;
+  border-color: var(--success);
 }
 
 .day-tab-weekday {
@@ -784,7 +752,7 @@ button.button {
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 50%;
-  background: #f97316;
+  background: var(--warn);
 }
 
 .day-title::first-letter {
@@ -800,8 +768,8 @@ button.button {
 }
 
 .badge-accent {
-  border-color: #f97316;
-  color: #f97316;
+  border-color: var(--warn);
+  color: var(--warn);
 }
 
 .macro-bars {
@@ -837,7 +805,7 @@ button.button {
 }
 
 .macro-fill.over {
-  background: #f97316;
+  background: var(--warn);
 }
 
 .meals {
@@ -870,7 +838,7 @@ button.button {
   width: 1.125rem;
   height: 1.125rem;
   margin: 0;
-  accent-color: #16a34a;
+  accent-color: var(--success);
   cursor: pointer;
 }
 
@@ -1096,9 +1064,9 @@ button.button {
 
 .disclaimer {
   padding: 0.875rem 1rem;
-  border: 1px solid #f59e0b55;
+  border: 1px solid color-mix(in srgb, var(--notice) 33%, transparent);
   border-radius: 12px;
-  background: #f59e0b14;
+  background: color-mix(in srgb, var(--notice) 8%, transparent);
   font-size: 0.875rem;
   line-height: 1.5;
 }
@@ -1135,15 +1103,15 @@ button.button {
 }
 
 .badge-warn {
-  border-color: #dc2626;
-  color: #dc2626;
+  border-color: var(--danger);
+  color: var(--danger);
 }
 
 .tolerance-warning {
   padding: 0.625rem 0.875rem;
   border-radius: 8px;
-  background: #dc262614;
-  color: #dc2626;
+  background: color-mix(in srgb, var(--danger) 8%, transparent);
+  color: var(--danger);
   font-size: 0.875rem;
 }
 
@@ -1154,7 +1122,7 @@ button.button {
   width: 0.4rem;
   height: 0.4rem;
   border-radius: 50%;
-  background: #dc2626;
+  background: var(--danger);
 }
 
 .generating {
@@ -1203,7 +1171,7 @@ button.button {
 .shopping-item input {
   flex-shrink: 0;
   margin: 0;
-  accent-color: #16a34a;
+  accent-color: var(--success);
 }
 
 .ingredients li.bought .shopping-item span {

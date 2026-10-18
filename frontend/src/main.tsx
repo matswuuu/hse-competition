@@ -1,17 +1,26 @@
-import { StrictMode } from 'react'
-import { createRoot } from 'react-dom/client'
-import { BrowserRouter } from 'react-router'
-import './i18n'
+import {StrictMode} from 'react'
+import {createRoot} from 'react-dom/client'
+import {BrowserRouter} from 'react-router'
+import AuthProvider from '@hse/shared/auth/AuthProvider'
+import {initI18n} from '@hse/shared/i18n'
+import {ThemeProvider} from '@hse/shared/theme'
 import './index.css'
 import App from './App.tsx'
-import AuthProvider from './auth/AuthProvider.tsx'
+import {setupPlatform, ThemeSync} from './platform.ts'
 
-createRoot(document.getElementById('root')!).render(
-  <StrictMode>
-    <BrowserRouter>
-      <AuthProvider>
-        <App />
-      </AuthProvider>
-    </BrowserRouter>
-  </StrictMode>,
+setupPlatform()
+
+void initI18n(navigator.languages).then(() =>
+  createRoot(document.getElementById('root')!).render(
+    <StrictMode>
+      <BrowserRouter>
+        <ThemeProvider>
+          <ThemeSync />
+          <AuthProvider>
+            <App />
+          </AuthProvider>
+        </ThemeProvider>
+      </BrowserRouter>
+    </StrictMode>,
+  ),
 )

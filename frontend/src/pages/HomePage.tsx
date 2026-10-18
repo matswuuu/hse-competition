@@ -1,6 +1,6 @@
-import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
-import { useAuth } from '@/auth/context'
+import {useTranslation} from 'react-i18next'
+import {Link} from 'react-router'
+import {useAuth} from '@hse/shared/auth/context'
 
 export default function HomePage() {
   const { user } = useAuth()

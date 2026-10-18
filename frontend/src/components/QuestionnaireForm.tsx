@@ -1,21 +1,16 @@
-import { useState, type FormEvent, type ReactNode } from 'react'
-import { Trans, useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
-import { ApiError } from '@/api/client'
-import * as questionnaireApi from '@/api/questionnaire'
-import type { ActivityLevel, CookingTime, Goal, QuestionnaireResponse, Sex } from '@/api/questionnaire'
+import type {FormEvent, ReactNode} from 'react'
+import {Trans, useTranslation} from 'react-i18next'
+import {Link} from 'react-router'
+import type {ActivityLevel, QuestionnaireResponse} from '@hse/shared/api/questionnaire'
+import {QUESTIONNAIRE_LIMITS as L, useQuestionnaireForm} from '@hse/shared/hooks/useQuestionnaireForm'
 import {
-  ACTIVITY_VALUES,
-  COOKING_VALUES,
-  EXCLUSION_TAGS,
-  GOAL_VALUES,
-  MEALS_PER_DAY_VALUES,
-  SEX_VALUES,
-} from '@/labels'
-
-function toggle<T>(set: T[], value: T) {
-  return set.includes(value) ? set.filter((v) => v !== value) : [...set, value]
-}
+    ACTIVITY_VALUES,
+    COOKING_VALUES,
+    EXCLUSION_TAGS,
+    GOAL_VALUES,
+    MEALS_PER_DAY_VALUES,
+    SEX_VALUES,
+} from '@hse/shared/labels'
 
 function Chip({
   type,
@@ -47,56 +42,11 @@ interface Props {
 
 export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }: Props) {
   const { t } = useTranslation()
-  const [sex, setSex] = useState<Sex | null>(initial?.sex ?? null)
-  const [age, setAge] = useState(initial ? String(initial.age) : '')
-  const [heightCm, setHeightCm] = useState(initial ? String(initial.heightCm) : '')
-  const [weightKg, setWeightKg] = useState(initial ? String(initial.weightKg) : '')
-  const [activityLevel, setActivityLevel] = useState<ActivityLevel>(initial?.activityLevel ?? 'MODERATE')
-  const [trainingDays, setTrainingDays] = useState<number[]>(initial?.trainingDays ?? [])
-  const [goal, setGoal] = useState<Goal | null>(initial?.goal ?? null)
-  const [mealsPerDay, setMealsPerDay] = useState(initial?.mealsPerDay ?? 3)
-  const [excludedTags, setExcludedTags] = useState<string[]>(initial?.excludedTags ?? [])
-  const [excludedFreeText, setExcludedFreeText] = useState(initial?.excludedFreeText ?? '')
-  const [cookingTime, setCookingTime] = useState<CookingTime>(initial?.cookingTime ?? 'ANY')
-  const [budgetPerDay, setBudgetPerDay] = useState(initial?.budgetPerDay != null ? String(initial.budgetPerDay) : '')
-  // Consent was already given when the saved questionnaire was submitted.
-  const [consentAgreed, setConsentAgreed] = useState(Boolean(initial))
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
+  const f = useQuestionnaireForm(initial, onSubmitted)
 
-  async function handleSubmit(e: FormEvent<HTMLFormElement>) {
+  function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    if (!sex || !goal) {
-      setError(t('questionnaire.sexAndGoalRequired'))
-      return
-    }
-    setError(null)
-    setSubmitting(true)
-    try {
-      const saved = await questionnaireApi.submit({
-        sex,
-        age: Number(age),
-        heightCm: Number(heightCm),
-        weightKg: Number(weightKg),
-        activityLevel,
-        trainingsPerWeek: trainingDays.length,
-        trainingDays: [...trainingDays].sort((a, b) => a - b),
-        goal,
-        mealsPerDay,
-        excludedTags,
-        excludedFreeText: excludedFreeText.trim() || null,
-        cookingTime,
-        budgetPerDay: budgetPerDay ? Number(budgetPerDay) : null,
-        consentAgreed,
-      })
-      setSubmitting(false)
-      onSubmitted(saved)
-    } catch (err) {
-      setError(
-        err instanceof ApiError && err.status === 400 ? t('auth.checkFields') : t('questionnaire.saveFailed'),
-      )
-      setSubmitting(false)
-    }
+    void f.submit()
   }
 
   return (
@@ -105,7 +55,7 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
         <legend>{t('questionnaire.sex')}</legend>
         <div className="chips">
           {SEX_VALUES.map((v) => (
-            <Chip key={v} type="radio" name="sex" checked={sex === v} onChange={() => setSex(v)}>
+            <Chip key={v} type="radio" name="sex" checked={f.sex === v} onChange={() => f.setSex(v)}>
               {t(`options.sex.${v}`)}
             </Chip>
           ))}
@@ -115,17 +65,16 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
       <div className="field-row">
         <label>
           {t('questionnaire.age')}
-          <input type="number" required min={14} max={100} value={age} onChange={(e) => setAge(e.target.value)} />
+          <input type="number" required {...L.age} value={f.age} onChange={(e) => f.setAge(e.target.value)} />
         </label>
         <label>
           {t('questionnaire.height')}
           <input
             type="number"
             required
-            min={100}
-            max={250}
-            value={heightCm}
-            onChange={(e) => setHeightCm(e.target.value)}
+            {...L.heightCm}
+            value={f.heightCm}
+            onChange={(e) => f.setHeightCm(e.target.value)}
           />
         </label>
         <label>
@@ -133,18 +82,16 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
           <input
             type="number"
             required
-            min={30}
-            max={300}
-            step="0.1"
-            value={weightKg}
-            onChange={(e) => setWeightKg(e.target.value)}
+            {...L.weightKg}
+            value={f.weightKg}
+            onChange={(e) => f.setWeightKg(e.target.value)}
           />
         </label>
       </div>
 
       <label>
         {t('questionnaire.activity')}
-        <select value={activityLevel} onChange={(e) => setActivityLevel(e.target.value as ActivityLevel)}>
+        <select value={f.activityLevel} onChange={(e) => f.setActivityLevel(e.target.value as ActivityLevel)}>
           {ACTIVITY_VALUES.map((v) => (
             <option key={v} value={v}>
               {t(`options.activity.${v}`)}
@@ -161,8 +108,8 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
               key={i}
               type="checkbox"
               name="trainingDays"
-              checked={trainingDays.includes(i + 1)}
-              onChange={() => setTrainingDays((days) => toggle(days, i + 1))}
+              checked={f.trainingDays.includes(i + 1)}
+              onChange={() => f.toggleTrainingDay(i + 1)}
             >
               {label}
             </Chip>
@@ -175,7 +122,7 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
         <legend>{t('questionnaire.goal')}</legend>
         <div className="chips">
           {GOAL_VALUES.map((v) => (
-            <Chip key={v} type="radio" name="goal" checked={goal === v} onChange={() => setGoal(v)}>
+            <Chip key={v} type="radio" name="goal" checked={f.goal === v} onChange={() => f.setGoal(v)}>
               {t(`options.goal.${v}`)}
             </Chip>
           ))}
@@ -186,7 +133,13 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
         <legend>{t('questionnaire.mealsPerDay')}</legend>
         <div className="chips">
           {MEALS_PER_DAY_VALUES.map((n) => (
-            <Chip key={n} type="radio" name="mealsPerDay" checked={mealsPerDay === n} onChange={() => setMealsPerDay(n)}>
+            <Chip
+              key={n}
+              type="radio"
+              name="mealsPerDay"
+              checked={f.mealsPerDay === n}
+              onChange={() => f.setMealsPerDay(n)}
+            >
               {n}
             </Chip>
           ))}
@@ -202,8 +155,8 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
               key={tag}
               type="checkbox"
               name="excludedTags"
-              checked={excludedTags.includes(tag)}
-              onChange={() => setExcludedTags((tags) => toggle(tags, tag))}
+              checked={f.excludedTags.includes(tag)}
+              onChange={() => f.toggleExcludedTag(tag)}
             >
               {t(`options.exclusion.${tag}`)}
             </Chip>
@@ -211,9 +164,9 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
         </div>
         <input
           placeholder={t('questionnaire.excludedOther')}
-          maxLength={500}
-          value={excludedFreeText}
-          onChange={(e) => setExcludedFreeText(e.target.value)}
+          {...L.excludedFreeText}
+          value={f.excludedFreeText}
+          onChange={(e) => f.setExcludedFreeText(e.target.value)}
         />
       </fieldset>
 
@@ -225,8 +178,8 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
               key={v}
               type="radio"
               name="cookingTime"
-              checked={cookingTime === v}
-              onChange={() => setCookingTime(v)}
+              checked={f.cookingTime === v}
+              onChange={() => f.setCookingTime(v)}
             >
               {t(`options.cooking.${v}`)}
             </Chip>
@@ -238,17 +191,21 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
         {t('questionnaire.budget')}
         <input
           type="number"
-          min={0}
-          step="10"
+          {...L.budgetPerDay}
           placeholder={t('questionnaire.budgetPlaceholder')}
-          value={budgetPerDay}
-          onChange={(e) => setBudgetPerDay(e.target.value)}
+          value={f.budgetPerDay}
+          onChange={(e) => f.setBudgetPerDay(e.target.value)}
         />
       </label>
 
-      {!initial && (
+      {f.askConsent && (
         <label className="checkbox">
-          <input type="checkbox" required checked={consentAgreed} onChange={(e) => setConsentAgreed(e.target.checked)} />
+          <input
+            type="checkbox"
+            required
+            checked={f.consentAgreed}
+            onChange={(e) => f.setConsentAgreed(e.target.checked)}
+          />
           <span>
             {/* New tab, so the half-filled form isn't lost. */}
             <Trans i18nKey="questionnaire.consent" components={{ link: <Link to="/privacy" target="_blank" /> }} />
@@ -256,13 +213,13 @@ export default function QuestionnaireForm({ initial, submitLabel, onSubmitted }:
         </label>
       )}
 
-      {error && (
+      {f.error && (
         <p className="form-error" role="alert">
-          {error}
+          {f.error}
         </p>
       )}
-      <button type="submit" disabled={submitting}>
-        {submitting ? t('questionnaire.saving') : (submitLabel ?? t('questionnaire.submit'))}
+      <button type="submit" disabled={f.submitting}>
+        {f.submitting ? t('questionnaire.saving') : (submitLabel ?? t('questionnaire.submit'))}
       </button>
     </form>
   )

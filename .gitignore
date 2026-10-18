@@ -38,3 +38,6 @@ out/
 
 ### Env ###
 .env
+
+### Node (npm workspace root) ###
+node_modules/

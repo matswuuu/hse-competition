@@ -16,6 +16,8 @@ concurrency:
 
 env:
   IMAGE_PREFIX: ghcr.io/${{ github.repository_owner }}/hse-competition
+  # Backend the mobile apps talk to; inlined into their web bundle at build time.
+  MOBILE_API_URL: https://${{ vars.SITE_ADDRESS || 'hse-competition.matswuuu.dev' }}
 
 jobs:
   backend-test:
@@ -54,7 +56,12 @@ jobs:
       packages: write
     strategy:
       matrix:
-        component: [backend, frontend]
+        include:
+          - component: backend
+            context: backend
+          # Built from the repo root so the image can see the shared workspace package.
+          - component: frontend
+            context: .
     steps:
       - uses: actions/checkout@v5
 
@@ -77,7 +84,8 @@ jobs:
 
       - uses: docker/build-push-action@v6
         with:
-          context: ${{ matrix.component }}
+          context: ${{ matrix.context }}
+          file: ${{ matrix.component }}/Dockerfile
           push: ${{ github.event_name != 'pull_request' }}
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
@@ -183,3 +191,149 @@ jobs:
             docker compose up -d --remove-orphans
             docker logout ghcr.io
             docker image prune -f
+
+  js-check:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci
+      - run: npm run typecheck --workspace shared
+      - run: npm run typecheck --workspace frontend
+      - run: npm run lint --workspace frontend
+
+  # The Android and iOS apps are the frontend in a Capacitor WebView.
+  mobile-android:
+    needs: js-check
+    runs-on: ubuntu-latest
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - uses: actions/setup-java@v5
+        with:
+          distribution: temurin
+          java-version: 21
+      - uses: gradle/actions/setup-gradle@v5
+      - run: npm ci --workspace frontend
+
+      - run: npm run build
+        env:
+          VITE_API_URL: ${{ env.MOBILE_API_URL }}
+      - run: npx cap sync android
+
+      # Without the keystore secret, the committed public debug key signs the APK (see app/build.gradle).
+      - name: Decode release keystore
+        env:
+          ANDROID_KEYSTORE_BASE64: ${{ secrets.ANDROID_KEYSTORE_BASE64 }}
+        run: |
+          if [ -z "$ANDROID_KEYSTORE_BASE64" ]; then
+            echo "::warning::ANDROID_KEYSTORE_BASE64 is not set; the APK is signed with the public debug key"
+            exit 0
+          fi
+          printf '%s' "$ANDROID_KEYSTORE_BASE64" | base64 -d > "$RUNNER_TEMP/release.jks"
+          echo "ANDROID_KEYSTORE_FILE=$RUNNER_TEMP/release.jks" >> "$GITHUB_ENV"
+
+      - name: Build release APK
+        working-directory: frontend/android
+        env:
+          ANDROID_KEYSTORE_PASSWORD: ${{ secrets.ANDROID_KEYSTORE_PASSWORD }}
+          ANDROID_KEY_ALIAS: ${{ secrets.ANDROID_KEY_ALIAS }}
+          ANDROID_KEY_PASSWORD: ${{ secrets.ANDROID_KEY_PASSWORD }}
+        # Store versions must grow with every build; the run number does.
+        run: |
+          ./gradlew assembleRelease --no-daemon \
+            -PversionCode=${{ github.run_number }} \
+            -PversionName="$(jq -r .version ../package.json)"
+          rm -f "$RUNNER_TEMP/release.jks"
+
+      - run: mv android/app/build/outputs/apk/release/app-release.apk hse-competition.apk
+      - uses: actions/upload-artifact@v4
+        with:
+          name: android
+          path: frontend/hse-competition.apk
+          if-no-files-found: error
+
+  mobile-ios:
+    needs: js-check
+    # Capacitor 8 needs Xcode 26.
+    runs-on: macos-26
+    defaults:
+      run:
+        working-directory: frontend
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/setup-node@v5
+        with:
+          node-version: 24
+          cache: npm
+      - run: npm ci --workspace frontend
+
+      - run: npm run build
+        env:
+          VITE_API_URL: ${{ env.MOBILE_API_URL }}
+      - run: npx cap sync ios
+
+      # No Apple signing identity in CI: the IPA is unsigned and must be re-signed to install
+      # (e.g. with AltStore or Sideloadly, or `xcrun` + a provisioning profile).
+      - name: Build unsigned IPA
+        run: |
+          set -o pipefail
+          xcodebuild archive \
+            -project ios/App/App.xcodeproj \
+            -scheme App \
+            -configuration Release \
+            -destination 'generic/platform=iOS' \
+            -archivePath "$RUNNER_TEMP/app.xcarchive" \
+            MARKETING_VERSION="$(jq -r .version package.json)" \
+            CURRENT_PROJECT_VERSION=${{ github.run_number }} \
+            CODE_SIGNING_ALLOWED=NO CODE_SIGNING_REQUIRED=NO CODE_SIGN_IDENTITY="" \
+            | xcbeautify --renderer github-actions
+          mkdir -p "$RUNNER_TEMP/ipa/Payload"
+          cp -R "$RUNNER_TEMP"/app.xcarchive/Products/Applications/*.app "$RUNNER_TEMP/ipa/Payload/"
+          (cd "$RUNNER_TEMP/ipa" && zip -qry "$GITHUB_WORKSPACE/frontend/hse-competition-unsigned.ipa" Payload)
+
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ios
+          path: frontend/hse-competition-unsigned.ipa
+          if-no-files-found: error
+
+  mobile-release:
+    needs: [backend-test, mobile-android, mobile-ios]
+    if: github.ref == 'refs/heads/main' && github.event_name != 'pull_request'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: write
+    steps:
+      - uses: actions/checkout@v5
+      - uses: actions/download-artifact@v5
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: Publish GitHub release
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          version=$(jq -r .version frontend/package.json)
+          tag="mobile-v$version-${{ github.run_number }}"
+          {
+            echo "Mobile build $version (${{ github.run_number }}) from ${GITHUB_SHA::7}."
+            echo
+            echo "- \`hse-competition.apk\`: Android, install directly (allow installs from unknown sources)."
+            echo "- \`hse-competition-unsigned.ipa\`: iOS, unsigned; re-sign it to install on a device."
+          } > notes.md
+          gh release create "$tag" dist/* \
+            --target "$GITHUB_SHA" \
+            --title "Mobile $version (build ${{ github.run_number }})" \
+            --notes-file notes.md \
+            --latest

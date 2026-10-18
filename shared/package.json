@@ -1,0 +1,26 @@
+{
+  "name": "@hse/shared",
+  "private": true,
+  "version": "0.0.0",
+  "type": "module",
+  "description": "UI-independent logic, API client, texts and palette used by the frontend (web and Capacitor apps)",
+  "exports": {
+    "./i18n": "./src/i18n/index.ts",
+    "./*": "./src/*.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "peerDependencies": {
+    "i18next": "^26.5.2",
+    "react": "^19.3.0",
+    "react-i18next": "^17.1.0"
+  },
+  "devDependencies": {
+    "@types/react": "~19.3.0",
+    "i18next": "^26.5.2",
+    "react": "19.3.0",
+    "react-i18next": "^17.1.0",
+    "typescript": "~6.0.3"
+  }
+}

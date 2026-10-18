@@ -28,6 +28,10 @@ spring:
       - org.springframework.ai.model.vertexai.autoconfigure.embedding.VertexAiMultiModalEmbeddingAutoConfiguration
       - org.springframework.ai.model.vertexai.autoconfigure.embedding.VertexAiTextEmbeddingAutoConfiguration
 
+# Origins of the Capacitor apps' WebViews (Android, iOS); comma-separated.
+cors:
+  allowed-origins: ${CORS_ALLOWED_ORIGINS:https://localhost,capacitor://localhost}
+
 nutrition:
   activity-coefficients:
     SEDENTARY: 1.2

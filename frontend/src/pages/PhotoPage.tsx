@@ -1,28 +1,13 @@
-import { useEffect, useState, type ChangeEvent } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Link } from 'react-router'
-
-// §4.9 (P2): clickable mockup only — nothing is uploaded or recognised.
-// Names come from `photo.sample`, in the same order.
-const SAMPLE = [
-  { grams: 180, kcal: 198, p: 7.6, f: 2.0, c: 38.5 },
-  { grams: 130, kcal: 214, p: 40.3, f: 4.7, c: 0 },
-  { grams: 90, kcal: 14, p: 0.7, f: 0.1, c: 2.7 },
-  { grams: 5, kcal: 45, p: 0, f: 5.0, c: 0 },
-]
+import {type ChangeEvent, createElement, useEffect, useState} from 'react'
+import {useTranslation} from 'react-i18next'
+import {Link} from 'react-router'
+import {macrosLine} from '@hse/shared/format'
+import {PHOTO_SAMPLE, PHOTO_TOTAL, SAMPLE_PLATE} from '@hse/shared/photo'
 
 function SamplePlate({ label }: { label: string }) {
   return (
-    <svg viewBox="0 0 200 200" className="photo-preview" role="img" aria-label={label}>
-      <rect width="200" height="200" rx="16" fill="#e8dccb" />
-      <circle cx="100" cy="100" r="82" fill="#fafafa" stroke="#ddd" strokeWidth="3" />
-      <circle cx="100" cy="100" r="64" fill="#f2f2f2" />
-      <path d="M50 110 Q60 70 100 72 Q120 74 118 112 Q100 140 62 132 Z" fill="#8b5a2b" />
-      <path d="M108 70 Q145 62 152 92 Q150 108 120 104 Z" fill="#f1d9b5" stroke="#d9b98c" strokeWidth="2" />
-      <circle cx="132" cy="128" r="11" fill="#7fbf6a" />
-      <circle cx="132" cy="128" r="6" fill="#d8f0c8" />
-      <circle cx="114" cy="140" r="10" fill="#7fbf6a" />
-      <circle cx="114" cy="140" r="5" fill="#d8f0c8" />
+    <svg viewBox={SAMPLE_PLATE.viewBox} className="photo-preview" role="img" aria-label={label}>
+      {SAMPLE_PLATE.shapes.map(({ type, ...attrs }, i) => createElement(type, { key: i, ...attrs }))}
     </svg>
   )
 }
@@ -41,11 +26,6 @@ export default function PhotoPage() {
     setPhoto(URL.createObjectURL(file))
     setAnalysed(true)
   }
-
-  const total = SAMPLE.reduce(
-    (acc, i) => ({ kcal: acc.kcal + i.kcal, p: acc.p + i.p, f: acc.f + i.f, c: acc.c + i.c }),
-    { kcal: 0, p: 0, f: 0, c: 0 },
-  )
 
   return (
     <section className="auth auth-wide photo-page">
@@ -81,10 +61,12 @@ export default function PhotoPage() {
           <>
             <div className="panel-head">
               <h3>{t('photo.result')}</h3>
-              <span className="result-kcal">{Math.round(total.kcal)} {t('common.kcal')}</span>
+              <span className="result-kcal">
+                {Math.round(PHOTO_TOTAL.kcal)} {t('common.kcal')}
+              </span>
             </div>
             <ul className="ingredients">
-              {SAMPLE.map((i, idx) => (
+              {PHOTO_SAMPLE.map((i, idx) => (
                 <li key={idx}>
                   <span>
                     {names[idx]}{' '}
@@ -99,8 +81,7 @@ export default function PhotoPage() {
               ))}
             </ul>
             <p className="muted">
-              {t('common.p')} {Math.round(total.p)} {t('common.g')} · {t('common.f')} {Math.round(total.f)}{' '}
-              {t('common.g')} · {t('common.c')} {Math.round(total.c)} {t('common.g')}
+              {macrosLine(PHOTO_TOTAL.p, PHOTO_TOTAL.f, PHOTO_TOTAL.c)}
             </p>
             <button
               type="button"

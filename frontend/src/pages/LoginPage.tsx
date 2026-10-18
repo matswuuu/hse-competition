@@ -1,34 +1,22 @@
-import { useState, type FormEvent } from 'react'
-import { useTranslation } from 'react-i18next'
-import { Link, Navigate, useLocation, useNavigate } from 'react-router'
-import { ApiError } from '@/api/client'
-import { useAuth } from '@/auth/context'
+import type {FormEvent} from 'react'
+import {useTranslation} from 'react-i18next'
+import {Link, Navigate, useLocation, useNavigate} from 'react-router'
+import {useAuth} from '@hse/shared/auth/context'
+import {useLoginForm} from '@hse/shared/hooks/useAuthForms'
 
 export default function LoginPage() {
-  const { user, login } = useAuth()
+  const { user } = useAuth()
   const { t } = useTranslation()
   const navigate = useNavigate()
   const location = useLocation()
   const from = (location.state as { from?: string } | null)?.from ?? '/'
+  const f = useLoginForm()
 
-  const [username, setUsername] = useState('')
-  const [password, setPassword] = useState('')
-  const [error, setError] = useState<string | null>(null)
-  const [submitting, setSubmitting] = useState(false)
-
-  if (user && !submitting) return <Navigate to={from} replace />
+  if (user && !f.submitting) return <Navigate to={from} replace />
 
   async function handleSubmit(e: FormEvent<HTMLFormElement>) {
     e.preventDefault()
-    setError(null)
-    setSubmitting(true)
-    try {
-      await login({ username: username.trim(), password })
-      navigate(from, { replace: true })
-    } catch (err) {
-      setError(err instanceof ApiError && err.status === 401 ? t('auth.loginInvalid') : t('auth.loginFailed'))
-      setSubmitting(false)
-    }
+    if (await f.submit()) navigate(from, { replace: true })
   }
 
   return (
@@ -41,8 +29,8 @@ export default function LoginPage() {
             name="username"
             autoComplete="username"
             required
-            value={username}
-            onChange={(e) => setUsername(e.target.value)}
+            value={f.username}
+            onChange={(e) => f.setUsername(e.target.value)}
           />
         </label>
         <label>
@@ -52,17 +40,17 @@ export default function LoginPage() {
             type="password"
             autoComplete="current-password"
             required
-            value={password}
-            onChange={(e) => setPassword(e.target.value)}
+            value={f.password}
+            onChange={(e) => f.setPassword(e.target.value)}
           />
         </label>
-        {error && (
+        {f.error && (
           <p className="form-error" role="alert">
-            {error}
+            {f.error}
           </p>
         )}
-        <button type="submit" disabled={submitting}>
-          {submitting ? t('auth.loginSubmitting') : t('auth.loginSubmit')}
+        <button type="submit" disabled={f.submitting}>
+          {f.submitting ? t('auth.loginSubmitting') : t('auth.loginSubmit')}
         </button>
       </form>
       <p className="auth-switch">
