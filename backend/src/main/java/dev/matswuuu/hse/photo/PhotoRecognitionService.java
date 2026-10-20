@@ -41,7 +41,7 @@ public class PhotoRecognitionService {
     private static final Logger log = LoggerFactory.getLogger(PhotoRecognitionService.class);
 
     /** Formats Gemini accepts as inline image data. */
-    static final Set<String> SUPPORTED_TYPES =
+    public static final Set<String> SUPPORTED_TYPES =
             Set.of("image/jpeg", "image/png", "image/webp", "image/heic", "image/heif");
 
     private static final int MAX_ITEMS = 12;

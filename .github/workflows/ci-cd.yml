@@ -139,12 +139,14 @@ jobs:
           # Optional: setting this secret switches the backend to the LLM planner.
           GEMINI_API_KEY: ${{ secrets.GEMINI_API_KEY }}
           GEMINI_MODEL: ${{ vars.GEMINI_MODEL || 'gemini-3.8-flash' }}
+          # Optional: receipt import by QR code (proverkacheka.com).
+          PROVERKACHEKA_TOKEN: ${{ secrets.PROVERKACHEKA_TOKEN }}
         with:
           host: ${{ secrets.SSH_HOST }}
           port: ${{ secrets.SSH_PORT || 22 }}
           username: ${{ secrets.SSH_USER }}
           key: ${{ secrets.SSH_KEY }}
-          envs: COMPOSE_B64,GHCR_USER,GHCR_TOKEN,DEPLOY_PATH,IMAGE_SHA,POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,SITE_ADDRESS,GEMINI_API_KEY,GEMINI_MODEL
+          envs: COMPOSE_B64,GHCR_USER,GHCR_TOKEN,DEPLOY_PATH,IMAGE_SHA,POSTGRES_DB,POSTGRES_USER,POSTGRES_PASSWORD,SITE_ADDRESS,GEMINI_API_KEY,GEMINI_MODEL,PROVERKACHEKA_TOKEN
           script: |
             set -eu
 
@@ -157,6 +159,7 @@ jobs:
             SITE_ADDRESS=$(trim "$SITE_ADDRESS")
             GEMINI_API_KEY=$(trim "${GEMINI_API_KEY:-}")
             GEMINI_MODEL=$(trim "${GEMINI_MODEL:-}")
+            PROVERKACHEKA_TOKEN=$(trim "${PROVERKACHEKA_TOKEN:-}")
 
             mkdir -p "$DEPLOY_PATH"
             cd "$DEPLOY_PATH"
@@ -166,8 +169,8 @@ jobs:
               echo "POSTGRES_PASSWORD secret is not set" >&2
               exit 1
             fi
-            case "$POSTGRES_DB$POSTGRES_USER$POSTGRES_PASSWORD$SITE_ADDRESS$GEMINI_API_KEY$GEMINI_MODEL" in *"'"*)
-              echo "DB settings, SITE_ADDRESS and Gemini settings must not contain single quotes" >&2
+            case "$POSTGRES_DB$POSTGRES_USER$POSTGRES_PASSWORD$SITE_ADDRESS$GEMINI_API_KEY$GEMINI_MODEL$PROVERKACHEKA_TOKEN" in *"'"*)
+              echo "DB settings, SITE_ADDRESS, Gemini and receipt settings must not contain single quotes" >&2
               exit 1
             esac
 
@@ -183,6 +186,9 @@ jobs:
                 echo "SPRING_PROFILES_ACTIVE='llm'"
                 echo "GEMINI_API_KEY='$GEMINI_API_KEY'"
                 echo "GEMINI_MODEL='$GEMINI_MODEL'"
+              fi
+              if [ -n "$PROVERKACHEKA_TOKEN" ]; then
+                echo "PROVERKACHEKA_TOKEN='$PROVERKACHEKA_TOKEN'"
               fi
             } > .env
 

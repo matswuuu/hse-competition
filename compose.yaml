@@ -30,6 +30,8 @@ services:
       SPRING_PROFILES_ACTIVE: ${SPRING_PROFILES_ACTIVE:-}
       GEMINI_API_KEY: ${GEMINI_API_KEY:-}
       GEMINI_MODEL: ${GEMINI_MODEL:-gemini-3.8-flash}
+      # Receipt import by QR code (proverkacheka.com); empty disables it.
+      PROVERKACHEKA_TOKEN: ${PROVERKACHEKA_TOKEN:-}
 
   caddy:
     image: ${FRONTEND_IMAGE:-ghcr.io/matswuuu/hse-competition-frontend}:${IMAGE_TAG:-latest}

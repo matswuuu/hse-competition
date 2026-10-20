@@ -3,6 +3,7 @@ package dev.matswuuu.hse.plan.gen;
 import com.fasterxml.jackson.annotation.JsonIgnoreProperties;
 import dev.matswuuu.hse.food.Product;
 import dev.matswuuu.hse.food.ProductRepository;
+import dev.matswuuu.hse.food.ProductSource;
 import dev.matswuuu.hse.plan.MealType;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -128,7 +129,7 @@ public class LlmMealPlanner implements MealPlanner {
         var q = context.questionnaire();
         MealType[] slots = MealType.slotsFor(q.getMealsPerDay());
         String slotList = java.util.Arrays.stream(slots).map(Enum::name).collect(Collectors.joining(", "));
-        String products = productRepository.findAll().stream()
+        String products = productRepository.findBySource(ProductSource.CATALOG).stream()
                 .map(Product::getName)
                 .collect(Collectors.joining("; "));
         boolean[] training = context.trainingDays();
@@ -145,6 +146,12 @@ public class LlmMealPlanner implements MealPlanner {
                             target.carbsG()));
         }
         Set<String> excluded = DemoMealPlanner.collectExclusions(q);
+        String fridge = context.fridge().isEmpty() ? "" : """
+                - В холодильнике есть продукты, у которых скоро истекает срок годности. В первую очередь составь
+                  блюда из них и используй каждый не позже дня, до которого он годен (productName дословно из списка):
+                %s""".formatted(context.fridge().stream()
+                        .map(f -> "  %s — %.0f г, годен до дня %d".formatted(f.productName(), f.grams(), f.expiresInDays() + 1))
+                        .collect(Collectors.joining("\n")));
         return """
                 Подбери блюда на 7 дней для спортивного питания. Ответь СТРОГО одним JSON без пояснений.
                 Схема: {"days":[{"trainingDay":bool,"meals":[{"mealType":"%s","dishName":"название",
@@ -160,14 +167,15 @@ public class LlmMealPlanner implements MealPlanner {
                 - время готовки блюда не более %d минут
                 - без спортпита и БАДов, только обычная еда
                 - калорийность дня примерно равна цели (±10%% за счёт граммовок)
-                """
+                %s"""
                 .formatted(
                         "BREAKFAST|LUNCH|DINNER|SNACK|SNACK_2",
                         slotList,
                         days,
                         products,
                         excluded.isEmpty() ? "нет" : String.join(", ", excluded),
-                        maxMinutes(q.getCookingTime()));
+                        maxMinutes(q.getCookingTime()),
+                        fridge);
     }
 
     private static int maxMinutes(dev.matswuuu.hse.questionnaire.CookingTime cookingTime) {

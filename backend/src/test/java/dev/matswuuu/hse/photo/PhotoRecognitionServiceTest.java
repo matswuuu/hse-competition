@@ -2,6 +2,7 @@ package dev.matswuuu.hse.photo;
 
 import dev.matswuuu.hse.food.Product;
 import dev.matswuuu.hse.food.ProductRepository;
+import dev.matswuuu.hse.food.ProductSource;
 import dev.matswuuu.hse.photo.dto.PhotoRecognitionResponse;
 import dev.matswuuu.hse.plan.PlanNutritionService;
 import org.junit.jupiter.api.DisplayName;
@@ -93,7 +94,7 @@ class PhotoRecognitionServiceTest {
         when(provider.getObject()).thenReturn(model);
 
         ProductRepository products = mock(ProductRepository.class);
-        when(products.findAll()).thenReturn(List.of(
+        when(products.findBySource(ProductSource.CATALOG)).thenReturn(List.of(
                 new Product("Гречка (сухая)", "крупы", 330, 12.6, 3.3, 62.0),
                 new Product("Куриная грудка (филе)", "мясо", 110, 23.1, 1.2, 0)));
 

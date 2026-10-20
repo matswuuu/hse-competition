@@ -9,10 +9,12 @@ import dev.matswuuu.hse.nutrition.DayTargets;
 import dev.matswuuu.hse.nutrition.NutritionProperties;
 import dev.matswuuu.hse.nutrition.NutritionTarget;
 import dev.matswuuu.hse.nutrition.NutritionTargetCalculator;
+import dev.matswuuu.hse.pantry.PantryService;
 import dev.matswuuu.hse.plan.dto.*;
 import dev.matswuuu.hse.plan.gen.*;
 import dev.matswuuu.hse.questionnaire.Questionnaire;
 import dev.matswuuu.hse.questionnaire.QuestionnaireService;
+import dev.matswuuu.hse.settings.SettingsService;
 import dev.matswuuu.hse.user.User;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -34,6 +36,9 @@ public class PlanService {
     /** Replacement keeps the meal's calories within this share (§4.7: близкое КБЖУ ±10%). */
     private static final double REPLACEMENT_TOLERANCE = 0.10;
 
+    /** Fridge products expiring within this many days of the plan start are planned first. */
+    private static final int FRIDGE_HORIZON_DAYS = 7;
+
     private static final Logger log = LoggerFactory.getLogger(PlanService.class);
 
     private final MealPlanRepository planRepository;
@@ -48,6 +53,8 @@ public class PlanService {
     private final ObjectProvider<MealPlanner> planners;
     private final AnalyticsService analyticsService;
     private final DishCatalog dishCatalog;
+    private final PantryService pantryService;
+    private final SettingsService settingsService;
     private final Duration llmTimeout;
 
     public PlanService(
@@ -63,6 +70,8 @@ public class PlanService {
             ObjectProvider<MealPlanner> planners,
             AnalyticsService analyticsService,
             DishCatalog dishCatalog,
+            PantryService pantryService,
+            SettingsService settingsService,
             @Value("${nutrition.llm.timeout:60s}") Duration llmTimeout) {
         this.planRepository = planRepository;
         this.dayRepository = dayRepository;
@@ -76,6 +85,8 @@ public class PlanService {
         this.planners = planners;
         this.analyticsService = analyticsService;
         this.dishCatalog = dishCatalog;
+        this.pantryService = pantryService;
+        this.settingsService = settingsService;
         this.llmTimeout = llmTimeout;
     }
 
@@ -108,6 +119,12 @@ public class PlanService {
 
         Map<String, Product> index = nutritionService.productIndex();
         Set<String> exclusions = DemoMealPlanner.collectExclusions(q);
+        List<FridgeStock> fridge = settingsService.settingsOf(user).isUseFridgeInPlanning()
+                ? pantryService.expiringStock(user, startDate, FRIDGE_HORIZON_DAYS)
+                : List.of();
+        if (!fridge.isEmpty()) {
+            log.info("User {} plans around {} expiring fridge products", user.getId(), fridge.size());
+        }
         Candidate best = null;
         String usedPlanner = demoPlanner.name();
         boolean fallbackUsed = true;
@@ -124,7 +141,7 @@ public class PlanService {
                 List<PlannedDay> days;
                 long plannerStarted = System.nanoTime();
                 try {
-                    days = planner.plan(new PlanContext(q, targets, startDate, round, Set.copyOf(banned), deadline));
+                    days = planner.plan(new PlanContext(q, targets, startDate, round, Set.copyOf(banned), deadline, fridge));
                 } catch (PlannerTimeoutException e) {
                     timedOut.add(planner);
                     log.warn("Planner {} timed out for user {} on round {} after {} ms, skipping it for this plan: {}",
@@ -216,6 +233,15 @@ public class PlanService {
     @Transactional
     public DishCardResponse setEaten(Long mealId, boolean eaten) {
         MealEntry meal = requireOwned(mealId);
+        if (meal.isEaten() != eaten) {
+            // Eating uses up what is in the fridge; un-marking puts it back.
+            List<MealIngredient> ingredients = ingredientRepository.findByMealId(mealId);
+            if (eaten) {
+                pantryService.consume(CurrentUser.get(), ingredients);
+            } else {
+                pantryService.restore(CurrentUser.get(), ingredients);
+            }
+        }
         meal.setEaten(eaten);
         analyticsService.log(
                 CurrentUser.get(),
@@ -292,30 +318,6 @@ public class PlanService {
         }
         analyticsService.log(user, AnalyticsEventType.DISH_REPLACED, "mealId=%d dish=%s".formatted(mealId, alt.dishName()));
         return dishCardOf(meal);
-    }
-
-    /** Week ingredients aggregated by category with grams (§4.8, P1). */
-    @Transactional(readOnly = true)
-    public ShoppingListResponse shoppingList() {
-        MealPlan plan = latestPlan();
-        Map<String, Map<String, Double>> byCategory = new TreeMap<>();
-        for (MealIngredient ingredient : ingredientRepository.findByPlanId(plan.getId())) {
-            Product product = ingredient.getProduct();
-            if (product == null) {
-                continue;
-            }
-            byCategory
-                    .computeIfAbsent(product.getCategory(), c -> new TreeMap<>())
-                    .merge(product.getName(), ingredient.getGrams(), Double::sum);
-        }
-        return new ShoppingListResponse(byCategory.entrySet().stream()
-                .map(e -> new ShoppingListResponse.CategoryGroup(
-                        e.getKey(),
-                        e.getValue().entrySet().stream()
-                                .map(i -> new ShoppingListResponse.Item(
-                                        i.getKey(), Math.round(i.getValue() * 10.0) / 10.0))
-                                .toList()))
-                .toList());
     }
 
     // ---- verification ----
@@ -446,7 +448,8 @@ public class PlanService {
         ingredientRepository.save(ingredient);
     }
 
-    private MealPlan latestPlan() {
+    /** The user's latest plan; 404 when none was generated yet. */
+    public MealPlan latestPlan() {
         User user = CurrentUser.get();
         return planRepository
                 .findFirstByUserIdOrderByCreatedAtDesc(user.getId())
@@ -468,7 +471,23 @@ public class PlanService {
         List<DayViewResponse> days = dayRepository.findByPlanIdOrderByDayIndex(plan.getId()).stream()
                 .map(this::dayView)
                 .toList();
-        return new WeekResponse(plan.getId(), plan.getStartDate(), plan.isFallbackUsed(), plan.getGenerationTimeMs(), days);
+        return new WeekResponse(
+                plan.getId(), plan.getStartDate(), plan.isFallbackUsed(), plan.getGenerationTimeMs(), days,
+                fridgeProductsIn(plan));
+    }
+
+    private List<String> fridgeProductsIn(MealPlan plan) {
+        LocalDate today = LocalDate.now();
+        Map<Long, Double> stock = pantryService.stockByCatalogProduct(plan.getUser(), today);
+        Set<String> used = new TreeSet<>();
+        for (MealIngredient ingredient : ingredientRepository.findByPlanId(plan.getId())) {
+            Product product = ingredient.getProduct();
+            if (product != null && stock.containsKey(product.getId()) && !ingredient.getMeal().isEaten()
+                    && !ingredient.getMeal().getPlanDay().getDate().isBefore(today)) {
+                used.add(product.getName());
+            }
+        }
+        return List.copyOf(used);
     }
 
     private DayViewResponse dayView(PlanDay day) {

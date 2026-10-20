@@ -29,6 +29,8 @@ dependencies {
     implementation("org.springframework.ai:spring-ai-starter-model-google-genai")
     implementation("org.springframework.ai:spring-ai-starter-model-google-genai-embedding")
     implementation("org.springframework.ai:spring-ai-starter-model-vertex-ai-embedding")
+    implementation("com.google.zxing:core:3.5.3")
+    implementation("com.google.zxing:javase:3.5.3")
     compileOnly("org.projectlombok:lombok")
     developmentOnly("org.springframework.boot:spring-boot-devtools")
     runtimeOnly("org.postgresql:postgresql")

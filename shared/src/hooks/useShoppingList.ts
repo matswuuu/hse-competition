@@ -1,50 +1,53 @@
-import {useEffect, useState} from 'react'
+import {useCallback, useEffect, useState} from 'react'
 import type {ShoppingList} from '../api/plans'
 import * as plansApi from '../api/plans'
-import {storage} from '../platform'
 
-// "Bought" marks live on the device only (§4.8); keyed by plan so a new plan starts clean.
-const storageKey = (planId: number) => `shopping-bought:${planId}`
-
-async function loadBought(planId: number): Promise<Set<string>> {
-  try {
-    return new Set(JSON.parse((await storage.get(storageKey(planId))) ?? '[]') as string[])
-  } catch {
-    return new Set()
-  }
-}
-
-/** Loads on mount; remount (via key) when the plan changes so the list refetches. */
-export function useShoppingList(planId: number) {
+/**
+ * Shopping list netted against the fridge: an item is done once the fridge covers it, so
+ * "bought" means adding it to the fridge. Remount (via key) when the plan changes.
+ */
+export function useShoppingList() {
   const [list, setList] = useState<ShoppingList | null>(null)
   const [error, setError] = useState(false)
-  const [bought, setBought] = useState<Set<string>>(new Set())
+  const [busy, setBusy] = useState(false)
+
+  const reload = useCallback(async () => {
+    try {
+      setList(await plansApi.shoppingList())
+      setError(false)
+    } catch {
+      setError(true)
+    }
+  }, [])
 
   useEffect(() => {
     let cancelled = false
-    Promise.all([plansApi.shoppingList(), loadBought(planId)])
-      .then(([data, marks]) => {
-        if (cancelled) return
-        setList(data)
-        setBought(marks)
-      })
+    plansApi
+      .shoppingList()
+      .then((data) => !cancelled && setList(data))
       .catch(() => !cancelled && setError(true))
     return () => {
       cancelled = true
     }
-  }, [planId])
+  }, [])
 
-  function toggle(productName: string) {
-    setBought((prev) => {
-      const next = new Set(prev)
-      if (!next.delete(productName)) next.add(productName)
-      void storage.set(storageKey(planId), JSON.stringify([...next]))
-      return next
-    })
+  async function mutate(call: () => Promise<ShoppingList>) {
+    setBusy(true)
+    try {
+      setList(await call())
+      return true
+    } catch {
+      return false
+    } finally {
+      setBusy(false)
+    }
   }
 
-  const items = list?.categories.flatMap((g) => g.items) ?? []
-  const boughtCount = items.filter((i) => bought.has(i.productName)).length
+  const dismiss = (productId: number) => mutate(() => plansApi.dismissShoppingItem(productId))
+  const restore = (productId: number) => mutate(() => plansApi.restoreShoppingItem(productId))
 
-  return { list, error, bought, toggle, total: items.length, boughtCount }
+  const items = list?.categories.flatMap((g) => g.items) ?? []
+  const covered = items.filter((i) => i.toBuyGrams <= 0).length
+
+  return { list, error, busy, reload, dismiss, restore, total: items.length, covered }
 }

@@ -1,8 +1,5 @@
 package dev.matswuuu.hse.food;
 
-import java.io.BufferedReader;
-import java.io.InputStreamReader;
-import java.nio.charset.StandardCharsets;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.boot.ApplicationArguments;
@@ -11,6 +8,10 @@ import org.springframework.core.annotation.Order;
 import org.springframework.core.io.ClassPathResource;
 import org.springframework.stereotype.Component;
 import org.springframework.transaction.annotation.Transactional;
+
+import java.io.BufferedReader;
+import java.io.InputStreamReader;
+import java.nio.charset.StandardCharsets;
 
 /** Seeds the product database from products.csv on first start (§4.4). */
 @Component
@@ -28,7 +29,7 @@ public class ProductSeeder implements ApplicationRunner {
     @Override
     @Transactional
     public void run(ApplicationArguments args) {
-        if (productRepository.count() > 0) {
+        if (productRepository.countBySource(ProductSource.CATALOG) > 0) {
             return;
         }
         try (BufferedReader reader = new BufferedReader(new InputStreamReader(

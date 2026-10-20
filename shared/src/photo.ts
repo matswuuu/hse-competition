@@ -31,20 +31,23 @@ export function sampleRecognition(names: string[]): PhotoRecognition {
 
 const MAX_SIDE = 1280
 
+/** Barcodes and receipt QR codes need more pixels than a plate photo. */
+export const CODE_MAX_SIDE = 2048
+
 /**
- * Shrinks a photo to at most 1280 px on the long side as JPEG: phone shots are several MB,
+ * Shrinks a photo to at most `maxSide` px on the long side as JPEG: phone shots are several MB,
  * and the model needs far less. Falls back to the original when the browser cannot decode it (e.g. HEIC).
  */
-export async function downscalePhoto(file: File): Promise<Blob> {
+export async function downscalePhoto(file: File, maxSide = MAX_SIDE): Promise<Blob> {
   try {
     const bitmap = await createImageBitmap(file)
-    const scale = Math.min(1, MAX_SIDE / Math.max(bitmap.width, bitmap.height))
+    const scale = Math.min(1, maxSide / Math.max(bitmap.width, bitmap.height))
     const canvas = document.createElement('canvas')
     canvas.width = Math.round(bitmap.width * scale)
     canvas.height = Math.round(bitmap.height * scale)
     canvas.getContext('2d')?.drawImage(bitmap, 0, 0, canvas.width, canvas.height)
     bitmap.close()
-    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', 0.85))
+    const blob = await new Promise<Blob | null>((resolve) => canvas.toBlob(resolve, 'image/jpeg', maxSide > MAX_SIDE ? 0.92 : 0.85))
     return blob ?? file
   } catch {
     return file

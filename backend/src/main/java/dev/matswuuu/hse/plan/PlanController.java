@@ -1,15 +1,9 @@
 package dev.matswuuu.hse.plan;
 
 import dev.matswuuu.hse.plan.dto.DayViewResponse;
-import dev.matswuuu.hse.plan.dto.ShoppingListResponse;
 import dev.matswuuu.hse.plan.dto.WeekResponse;
 import org.springframework.http.HttpStatus;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.ResponseStatus;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/plans")
@@ -38,11 +32,5 @@ public class PlanController {
     @GetMapping("/current/days/{dayIndex}")
     public DayViewResponse day(@PathVariable int dayIndex) {
         return planService.day(dayIndex);
-    }
-
-    /** Aggregated week ingredients by category (§4.8, P1). */
-    @GetMapping("/current/shopping-list")
-    public ShoppingListResponse shoppingList() {
-        return planService.shoppingList();
     }
 }

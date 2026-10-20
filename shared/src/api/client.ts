@@ -57,3 +57,15 @@ export const post = <T>(path: string, data?: unknown) =>
 
 export const patch = <T>(path: string, data: unknown) =>
   api<T>(path, { method: 'PATCH', body: JSON.stringify(data) })
+
+export const put = <T>(path: string, data: unknown) => api<T>(path, { method: 'PUT', body: JSON.stringify(data) })
+
+export const del = <T = void>(path: string) => api<T>(path, { method: 'DELETE' })
+
+/** Multipart upload of one image as field `name` (plus extra parts). */
+export function upload<T>(path: string, image: Blob, name = 'file', extra: Record<string, Blob> = {}) {
+  const body = new FormData()
+  body.append(name, image, 'photo.jpg')
+  for (const [key, value] of Object.entries(extra)) body.append(key, value)
+  return api<T>(path, { method: 'POST', body })
+}

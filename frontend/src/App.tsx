@@ -10,7 +10,7 @@ import OverviewPage from '@/pages/profile/OverviewPage'
 import PlanPage from '@/pages/profile/PlanPage'
 import ProfileLayout from '@/pages/profile/ProfileLayout'
 import SettingsPage from '@/pages/profile/SettingsPage'
-import ShoppingPage from '@/pages/profile/ShoppingPage'
+import ShoppingPage, {FridgeTab, ShoppingListTab, SpendingTab} from '@/pages/profile/ShoppingPage'
 import RegisterPage from '@/pages/RegisterPage'
 
 export default function App() {
@@ -23,7 +23,11 @@ export default function App() {
         <Route path="profile" element={<ProfileLayout />}>
           <Route index element={<OverviewPage />} />
           <Route path="plan" element={<PlanPage />} />
-          <Route path="shopping" element={<ShoppingPage />} />
+          <Route path="shopping" element={<ShoppingPage />}>
+            <Route index element={<ShoppingListTab />} />
+            <Route path="fridge" element={<FridgeTab />} />
+            <Route path="spending" element={<SpendingTab />} />
+          </Route>
           <Route path="data" element={<DataPage />} />
           <Route path="settings" element={<SettingsPage />} />
         </Route>

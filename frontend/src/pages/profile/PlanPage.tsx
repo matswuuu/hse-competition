@@ -2,6 +2,7 @@ import AutoAwesomeIcon from '@mui/icons-material/AutoAwesome'
 import CheckCircleIcon from '@mui/icons-material/CheckCircle'
 import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
+import KitchenOutlinedIcon from '@mui/icons-material/KitchenOutlined'
 import PhotoCameraOutlinedIcon from '@mui/icons-material/PhotoCameraOutlined'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import Alert from '@mui/material/Alert'
@@ -124,6 +125,13 @@ export default function PlanPage() {
             </Button>
           </Stack>
         </Card>
+      )}
+
+      {!!week?.fridgeProducts.length && (
+        <Stack direction="row" spacing={1} sx={{ alignItems: 'center', color: 'text.secondary' }}>
+          <KitchenOutlinedIcon fontSize="small" />
+          <Typography variant="body2">{t('plan.fridgeUsed', { names: week.fridgeProducts.join(', ') })}</Typography>
+        </Stack>
       )}
 
       {week && day && (

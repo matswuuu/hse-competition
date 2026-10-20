@@ -4,14 +4,18 @@ import LogoutIcon from '@mui/icons-material/Logout'
 import SettingsBrightnessOutlinedIcon from '@mui/icons-material/SettingsBrightnessOutlined'
 import Button from '@mui/material/Button'
 import Card from '@mui/material/Card'
+import Alert from '@mui/material/Alert'
 import Divider from '@mui/material/Divider'
+import FormControlLabel from '@mui/material/FormControlLabel'
 import Stack from '@mui/material/Stack'
+import Switch from '@mui/material/Switch'
 import ToggleButton from '@mui/material/ToggleButton'
 import ToggleButtonGroup from '@mui/material/ToggleButtonGroup'
 import Typography from '@mui/material/Typography'
-import {type ReactNode, useId} from 'react'
+import {type ReactNode, useEffect, useId, useState} from 'react'
 import {useTranslation} from 'react-i18next'
 import {useNavigate} from 'react-router'
+import * as settingsApi from '@hse/shared/api/settings'
 import {useAuth} from '@hse/shared/auth/context'
 import {currentLanguage, type Language, LANGUAGES, setLanguage} from '@hse/shared/i18n'
 import {type Theme, THEMES, useTheme} from '@hse/shared/theme'
@@ -34,7 +38,61 @@ function Setting({ label, children }: { label: string; children: (labelId: strin
   )
 }
 
-/** UI preferences; applied immediately and kept on this device only. */
+/** Menu preferences stored with the account: the planner on the server acts on them. */
+function PlanningSettings() {
+  const { t } = useTranslation()
+  const [useFridge, setUseFridge] = useState<boolean | null>(null)
+  const [error, setError] = useState(false)
+
+  useEffect(() => {
+    let active = true
+    settingsApi
+      .load()
+      .then((s) => active && setUseFridge(s.useFridgeInPlanning))
+      .catch(() => active && setError(true))
+    return () => void (active = false)
+  }, [])
+
+  async function toggle(next: boolean) {
+    const previous = useFridge
+    setUseFridge(next)
+    setError(false)
+    try {
+      setUseFridge((await settingsApi.update({ useFridgeInPlanning: next })).useFridgeInPlanning)
+    } catch {
+      setUseFridge(previous)
+      setError(true)
+    }
+  }
+
+  return (
+    <Card>
+      <Setting label={t('settings.planning')}>
+        {() => (
+          <>
+            <FormControlLabel
+              control={
+                <Switch
+                  checked={!!useFridge}
+                  disabled={useFridge === null}
+                  onChange={(e) => void toggle(e.target.checked)}
+                />
+              }
+              label={t('settings.useFridge')}
+              sx={{ alignItems: 'flex-start', mr: 0, '& .MuiSwitch-root': { mt: -0.75 } }}
+            />
+            <Typography variant="body2" color="text.secondary">
+              {t('settings.useFridgeHint')}
+            </Typography>
+            {error && <Alert severity="error">{t('settings.saveFailed')}</Alert>}
+          </>
+        )}
+      </Setting>
+    </Card>
+  )
+}
+
+/** UI preferences (applied immediately, kept on this device) and the account's menu settings. */
 export default function SettingsPage() {
   const { t } = useTranslation()
   const { theme, setTheme } = useTheme()
@@ -85,6 +143,7 @@ export default function SettingsPage() {
           )}
         </Setting>
       </Card>
+      <PlanningSettings />
       <Button
         variant="outlined"
         color="error"

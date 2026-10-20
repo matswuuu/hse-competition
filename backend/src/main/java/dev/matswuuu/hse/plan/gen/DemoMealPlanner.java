@@ -11,19 +11,12 @@ import dev.matswuuu.hse.plan.PlanNutritionService;
 import dev.matswuuu.hse.plan.dto.NutritionFacts;
 import dev.matswuuu.hse.questionnaire.CookingTime;
 import dev.matswuuu.hse.questionnaire.Questionnaire;
-
-import java.util.ArrayList;
-import java.util.Comparator;
-import java.util.HashMap;
-import java.util.HashSet;
-import java.util.List;
-import java.util.Map;
-import java.util.Set;
-
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
 import org.springframework.context.annotation.Primary;
 import org.springframework.stereotype.Service;
+
+import java.util.*;
 
 /**
  * Deterministic code-only planner: template dishes from the dish DB + portion scaling to the
@@ -41,6 +34,12 @@ public class DemoMealPlanner implements MealPlanner {
      * total over meal balance.
      */
     private static final double[] QUOTA_WEIGHTS = {0.35, 0.15, 0.05, 0.0};
+
+    /**
+     * Retry rounds that still put fridge products first; later rounds pick by macros only, so a
+     * fridge that fits the targets badly cannot cost the plan its tolerance.
+     */
+    private static final int FRIDGE_ROUNDS = 3;
 
     private static final double[] FIT_STEPS = {
             0.3, 0.4, 0.5, 0.6, 0.7, 0.8, 0.9, 1.0, 1.1, 1.2, 1.35, 1.5, 1.75, 2.0, 2.4
@@ -76,6 +75,7 @@ public class DemoMealPlanner implements MealPlanner {
         int maxMinutes = maxMinutes(context.questionnaire().getCookingTime());
         List<PlannedDay> days = new ArrayList<>(7);
         Map<MealType, List<String>> recentBySlot = new HashMap<>();
+        Map<String, FridgeLeft> fridge = context.round() < FRIDGE_ROUNDS ? fridgeLeft(context.fridge()) : Map.of();
         for (int day = 0; day < 7; day++) {
             NutritionTarget target = training[day]
                     ? context.targets().trainingDay()
@@ -90,8 +90,9 @@ public class DemoMealPlanner implements MealPlanner {
                         exclusions, maxMinutes, target.proteinG() >= 120
                                 && (slots[s] == MealType.LUNCH || slots[s] == MealType.DINNER),
                         recentBySlot.getOrDefault(slots[s], List.of()), pickedToday,
-                        context.bannedDishes(), templates, index);
+                        context.bannedDishes(), templates, index, fridge);
                 meals.add(picked);
+                useUp(picked, fridge, index);
                 pickedToday.add(picked.dishName());
                 List<String> recent = recentBySlot.computeIfAbsent(slots[s], k -> new ArrayList<>());
                 recent.add(picked.dishName());
@@ -308,7 +309,8 @@ public class DemoMealPlanner implements MealPlanner {
             MealType slot, NutritionFacts target, List<PlannedMeal> picked,
             int day, int slotIdx, int round, Set<String> exclusions, int maxMinutes,
             boolean requireAnimalProtein, List<String> recentlyUsed, Set<String> pickedToday,
-            Set<String> banned, List<DishTemplate> templates, Map<String, Product> index) {
+            Set<String> banned, List<DishTemplate> templates, Map<String, Product> index,
+            Map<String, FridgeLeft> fridge) {
         List<DishTemplate> pool = templates.stream()
                 .filter(t -> fitsSlot(t, slot))
                 .filter(t -> !violates(t, exclusions, index))
@@ -350,9 +352,75 @@ public class DemoMealPlanner implements MealPlanner {
         if (choice.isEmpty()) {
             choice = ranked;
         }
+        if (!fridge.isEmpty()) {
+            // Fridge first: dishes using a product that runs out soonest, still balanced by macros.
+            List<DishTemplate> usingFridge = ranked.stream()
+                    .filter(t -> !pickedToday.contains(t.dishName()))
+                    .filter(t -> fridgeUrgency(t, fridge, day, index) != Integer.MAX_VALUE)
+                    .sorted(Comparator.comparingInt((DishTemplate t) -> fridgeUrgency(t, fridge, day, index))
+                            .thenComparing(t -> recentlyUsed.contains(t.dishName())))
+                    .toList();
+            if (!usingFridge.isEmpty()) {
+                return usingFridge.get(Math.abs(slotIdx + round) % Math.min(1 + round, usingFridge.size())).toMeal(slot);
+            }
+        }
         // Later retry rounds explore wider: top-2, then top-4, then top-6.
         int width = Math.min(2 + round * 2, choice.size());
         return choice.get(Math.abs(day + slotIdx + round) % width).toMeal(slot);
+    }
+
+    /** Fridge stock left while the week is composed, keyed by normalized catalog name. */
+    private static final class FridgeLeft {
+        double grams;
+        final int expiresInDays;
+
+        FridgeLeft(double grams, int expiresInDays) {
+            this.grams = grams;
+            this.expiresInDays = expiresInDays;
+        }
+    }
+
+    private static Map<String, FridgeLeft> fridgeLeft(List<FridgeStock> stock) {
+        Map<String, FridgeLeft> result = new HashMap<>();
+        for (FridgeStock s : stock) {
+            // Several packs of one product: the amount adds up, the soonest date counts.
+            result.merge(key(s.productName()), new FridgeLeft(s.grams(), s.expiresInDays()),
+                    (a, b) -> new FridgeLeft(a.grams + b.grams, Math.min(a.expiresInDays, b.expiresInDays)));
+        }
+        return result;
+    }
+
+    /**
+     * Days until the soonest-expiring fridge product the dish uses that is still in stock and not
+     * expired on {@code day}; {@link Integer#MAX_VALUE} when it uses none.
+     */
+    private int fridgeUrgency(DishTemplate template, Map<String, FridgeLeft> fridge, int day, Map<String, Product> index) {
+        int best = Integer.MAX_VALUE;
+        for (PlannedIngredient ingredient : template.ingredients()) {
+            Product product = nutritionService.resolve(ingredient.productName(), index);
+            FridgeLeft left = product == null ? null : fridge.get(key(product.getName()));
+            if (left != null && left.grams > 0 && left.expiresInDays >= day) {
+                best = Math.min(best, left.expiresInDays);
+            }
+        }
+        return best;
+    }
+
+    private void useUp(PlannedMeal meal, Map<String, FridgeLeft> fridge, Map<String, Product> index) {
+        if (fridge.isEmpty()) {
+            return;
+        }
+        for (PlannedIngredient ingredient : meal.ingredients()) {
+            Product product = nutritionService.resolve(ingredient.productName(), index);
+            FridgeLeft left = product == null ? null : fridge.get(key(product.getName()));
+            if (left != null) {
+                left.grams -= ingredient.grams();
+            }
+        }
+    }
+
+    private static String key(String name) {
+        return name.strip().toLowerCase(java.util.Locale.forLanguageTag("ru"));
     }
 
     /**
