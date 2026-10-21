@@ -1,7 +1,7 @@
 <?xml version='1.0' encoding='utf-8'?>
 <resources>
-    <string name="app_name">Холодос</string>
-    <string name="title_activity_main">Холодос</string>
+    <string name="app_name">RePast</string>
+    <string name="title_activity_main">RePast</string>
     <string name="package_name">dev.matswuuu.hse</string>
     <string name="custom_url_scheme">dev.matswuuu.hse</string>
 </resources>

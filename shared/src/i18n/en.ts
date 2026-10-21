@@ -2,7 +2,7 @@ import type ru from './ru'
 
 const en: typeof ru = {
   common: {
-    appName: 'Kholodos',
+    appName: 'RePast',
     loading: 'Loading…',
     soon: 'Soon',
     show: 'Show',
@@ -422,7 +422,7 @@ const en: typeof ru = {
         { heading: '1. General' },
         {
           paragraph:
-            'These terms govern the use of the Kholodos service (the “Service”), which builds personal meal plans from questionnaire data. By signing up or using the Service you confirm that you have read and accept these terms. If you do not agree with them, do not use the Service.',
+            'These terms govern the use of the RePast service (the “Service”), which builds personal meal plans from questionnaire data. By signing up or using the Service you confirm that you have read and accept these terms. If you do not agree with them, do not use the Service.',
         },
         { heading: '2. Not medical advice' },
         {
@@ -474,7 +474,7 @@ const en: typeof ru = {
       blocks: [
         {
           paragraph:
-            'This policy describes what data the Kholodos service (the “Service”) collects, why and how it is used. By using the Service you agree to its terms. General rules of the Service are set out in the [Terms of use](terms).',
+            'This policy describes what data the RePast service (the “Service”) collects, why and how it is used. By using the Service you agree to its terms. General rules of the Service are set out in the [Terms of use](terms).',
         },
         { heading: '1. What data we collect' },
         {
