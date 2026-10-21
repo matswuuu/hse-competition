@@ -4,6 +4,7 @@ import ChevronRightIcon from '@mui/icons-material/ChevronRight'
 import FitnessCenterIcon from '@mui/icons-material/FitnessCenter'
 import KitchenOutlinedIcon from '@mui/icons-material/KitchenOutlined'
 import PhotoCameraOutlinedIcon from '@mui/icons-material/PhotoCameraOutlined'
+import BalanceIcon from '@mui/icons-material/Balance'
 import RefreshIcon from '@mui/icons-material/Refresh'
 import Alert from '@mui/material/Alert'
 import Box from '@mui/material/Box'
@@ -17,7 +18,8 @@ import Stack from '@mui/material/Stack'
 import Typography from '@mui/material/Typography'
 import {useEffect, useRef, useState} from 'react'
 import {useTranslation} from 'react-i18next'
-import type {DayView} from '@hse/shared/api/plans'
+import {isApiError} from '@hse/shared/api/client'
+import {type DayView, rebalanceDay} from '@hse/shared/api/plans'
 import {longDate, shortDate, weekday} from '@hse/shared/format'
 import {useProfile} from '@hse/shared/profile/context'
 import {isDayDone, todayIndex} from '@hse/shared/profile/summary'
@@ -71,6 +73,9 @@ export default function PlanPage() {
   const { questionnaire, week, setMealEaten, reloadWeek, generating, generateError, generate } = useProfile()
   const [selectedDay, setSelectedDay] = useState(() => todayIndex(week))
   const dayTabsRef = useRef<HTMLDivElement>(null)
+  const [rebalancing, setRebalancing] = useState(false)
+  // Kept with its day so it does not show up on other days.
+  const [rebalanceError, setRebalanceError] = useState<{ dayIndex: number; message: string } | null>(null)
 
   // On narrow screens the day strip scrolls; keep the selected day visible.
   useEffect(() => {
@@ -86,6 +91,22 @@ export default function PlanPage() {
   }
 
   const day = week?.days[selectedDay]
+
+  async function rebalance(dayIndex: number) {
+    setRebalancing(true)
+    setRebalanceError(null)
+    try {
+      await rebalanceDay(dayIndex)
+      await reloadWeek()
+    } catch (err) {
+      setRebalanceError({
+        dayIndex,
+        message: t(isApiError(err, 422) ? 'plan.rebalanceNoBetter' : 'plan.rebalanceFailed'),
+      })
+    } finally {
+      setRebalancing(false)
+    }
+  }
 
   return (
     <Stack component="section" spacing={2}>
@@ -179,7 +200,28 @@ export default function PlanPage() {
               <MacroBars totals={day.totals} targets={day.targets} />
               {!day.withinTolerance && (
                 <Alert severity="warning" role="status">
-                  {t('plan.toleranceWarning', { pct: day.deviationPct })}
+                  {t(day.rebalanceAvailable ? 'plan.toleranceWarningEdited' : 'plan.toleranceWarning', {
+                    pct: day.deviationPct,
+                  })}
+                  {day.rebalanceAvailable && (
+                    <Box sx={{ mt: 1 }}>
+                      <Button
+                        variant="outlined"
+                        color="inherit"
+                        size="small"
+                        startIcon={<BalanceIcon />}
+                        onClick={() => rebalance(day.dayIndex)}
+                        disabled={rebalancing}
+                      >
+                        {rebalancing ? t('plan.rebalancing') : t('plan.rebalance')}
+                      </Button>
+                    </Box>
+                  )}
+                </Alert>
+              )}
+              {rebalanceError?.dayIndex === day.dayIndex && (
+                <Alert severity="error" role="alert" onClose={() => setRebalanceError(null)}>
+                  {rebalanceError.message}
                 </Alert>
               )}
               <Stack spacing={1}>

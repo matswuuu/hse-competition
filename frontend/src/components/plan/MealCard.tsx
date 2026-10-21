@@ -1,3 +1,4 @@
+import EditNoteIcon from '@mui/icons-material/EditNote'
 import ExpandMoreIcon from '@mui/icons-material/ExpandMore'
 import OpenInNewIcon from '@mui/icons-material/OpenInNew'
 import SwapHorizIcon from '@mui/icons-material/SwapHoriz'
@@ -16,11 +17,13 @@ import ListItemText from '@mui/material/ListItemText'
 import Stack from '@mui/material/Stack'
 import Tooltip from '@mui/material/Tooltip'
 import Typography from '@mui/material/Typography'
+import {useState} from 'react'
 import {useTranslation} from 'react-i18next'
 import type {MealSummary} from '@hse/shared/api/plans'
 import {grams, mealMeta} from '@hse/shared/format'
 import {hostname, useMealCard} from '@hse/shared/hooks/useMealCard'
 import {md} from '@/theme'
+import OwnMealDialog from './OwnMealDialog'
 
 interface Props {
   meal: MealSummary
@@ -30,7 +33,9 @@ interface Props {
 
 export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
   const { t } = useTranslation()
-  const { open, card, busy, error, toggleOpen, toggleEaten, replace } = useMealCard(meal, onEatenChange, onReplaced)
+  const { open, card, busy, error, toggleOpen, toggleEaten, replace, replacedWithOwn } =
+    useMealCard(meal, onEatenChange, onReplaced)
+  const [ownOpen, setOwnOpen] = useState(false)
   const markLabel = meal.eaten ? t('meal.markNotEaten') : t('meal.markEaten')
 
   return (
@@ -56,6 +61,7 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
           <Box sx={{ flex: 1, minWidth: 0 }}>
             <Typography variant="overline" color="text.secondary" sx={{ display: 'block' }}>
               {t(`options.mealType.${meal.mealType}`)}
+              {meal.custom && ` · ${t('meal.own')}`}
             </Typography>
             <Typography
               variant="subtitle1"
@@ -91,13 +97,13 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
             <>
               <Typography variant="subtitle2">{t('meal.ingredients')}</Typography>
               <List dense disablePadding sx={{ alignSelf: 'stretch' }}>
-                {card.ingredients.map((ing) => (
-                  <ListItem key={ing.productName} disableGutters divider secondaryAction={
+                {card.ingredients.map((ing, idx) => (
+                  <ListItem key={idx} disableGutters divider secondaryAction={
                     <Typography variant="body2" color="text.secondary">
                       {grams(ing.grams)}
                     </Typography>
                   }>
-                    <ListItemText primary={ing.productName} />
+                    <ListItemText primary={ing.productName} secondary={ing.facts ? undefined : t('meal.notCounted')} />
                   </ListItem>
                 ))}
               </List>
@@ -133,18 +139,27 @@ export default function MealCard({ meal, onEatenChange, onReplaced }: Props) {
               )}
             </>
           )}
-          <Button
-            variant="outlined"
-            size="small"
-            startIcon={<SwapHorizIcon />}
-            onClick={replace}
-            disabled={busy}
-            sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' } }}
-          >
-            {busy ? t('meal.replacing') : t('meal.replace')}
-          </Button>
+          <Stack direction={{ xs: 'column', sm: 'row' }} spacing={1} sx={{ alignSelf: { xs: 'stretch', sm: 'flex-start' } }}>
+            <Button variant="outlined" size="small" startIcon={<SwapHorizIcon />} onClick={replace} disabled={busy}>
+              {busy ? t('meal.replacing') : t('meal.replace')}
+            </Button>
+            <Button variant="outlined" size="small" startIcon={<EditNoteIcon />} onClick={() => setOwnOpen(true)} disabled={busy}>
+              {t('meal.replaceOwn')}
+            </Button>
+          </Stack>
         </Stack>
       </Collapse>
+
+      <OwnMealDialog
+        open={ownOpen}
+        mealId={meal.id}
+        plannedDish={meal.dishName}
+        onClose={() => setOwnOpen(false)}
+        onSaved={() => {
+          setOwnOpen(false)
+          replacedWithOwn()
+        }}
+      />
     </Card>
   )
 }

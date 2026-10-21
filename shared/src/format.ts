@@ -44,5 +44,8 @@ export const mealMeta = (facts: { kcal: number; proteinG: number; fatG: number; 
   [
     `${round(facts.kcal)} ${i18n.t('common.kcal')}`,
     macrosLine(facts.proteinG, facts.fatG, facts.carbsG, false),
-    `${minutes} ${i18n.t('common.min')}`,
-  ].join(' · ')
+    // Own meals have no cooking time.
+    minutes > 0 ? `${minutes} ${i18n.t('common.min')}` : null,
+  ]
+    .filter(Boolean)
+    .join(' · ')

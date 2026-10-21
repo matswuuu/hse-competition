@@ -1,6 +1,9 @@
 package dev.matswuuu.hse.photo;
 
 import dev.matswuuu.hse.photo.dto.PhotoRecognitionResponse;
+import jakarta.validation.Valid;
+import jakarta.validation.constraints.NotBlank;
+import jakarta.validation.constraints.Size;
 import org.springframework.web.bind.annotation.*;
 import org.springframework.web.multipart.MultipartFile;
 
@@ -28,5 +31,13 @@ public class PhotoController {
         return recognitionService.recognize(file.getBytes(), file.getContentType());
     }
 
+    /** Same as {@link #recognize} for a meal described in words: what the user ate instead of the plan. */
+    @PostMapping("/describe")
+    public PhotoRecognitionResponse describe(@Valid @RequestBody DescribeRequest request) {
+        return recognitionService.recognizeText(request.text());
+    }
+
     public record StatusResponse(boolean available) {}
+
+    public record DescribeRequest(@NotBlank @Size(max = 1000) String text) {}
 }

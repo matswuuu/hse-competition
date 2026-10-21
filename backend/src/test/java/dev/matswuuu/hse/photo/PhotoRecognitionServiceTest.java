@@ -61,6 +61,28 @@ class PhotoRecognitionServiceTest {
         assertThat(sauce.facts()).isNull();
 
         assertThat(response.total().kcal()).isEqualTo(341, offset(0.01));
+        assertThat(buckwheat.productGrams()).isEqualTo(60);
+        assertThat(sauce.productGrams()).isNull();
+        assertThat(response.dishName()).isNull();
+    }
+
+    @Test
+    @DisplayName("a meal described in words is recognized the same way, with the dish name")
+    void recognizesDescription() {
+        var service = service(true, """
+                {"dishName":"Гречка с курицей","items":[
+                  {"name":"Гречка отварная","productName":"Гречка (сухая)","grams":200,"productGrams":70}
+                ]}
+                """);
+
+        PhotoRecognitionResponse response = service.recognizeText("тарелка гречки с курицей");
+
+        assertThat(response.dishName()).isEqualTo("Гречка с курицей");
+        assertThat(response.items()).singleElement()
+                .satisfies(i -> assertThat(i.facts().kcal()).isEqualTo(231, offset(0.01)));
+        assertThatThrownBy(() -> service.recognizeText("  "))
+                .isInstanceOfSatisfying(ResponseStatusException.class,
+                        e -> assertThat(e.getStatusCode()).isEqualTo(HttpStatus.BAD_REQUEST));
     }
 
     @Test

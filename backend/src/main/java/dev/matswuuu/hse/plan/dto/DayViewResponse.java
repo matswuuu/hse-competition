@@ -12,4 +12,5 @@ public record DayViewResponse(
         NutritionFacts totals,
         boolean withinTolerance,
         double deviationPct,
-        List<MealSummaryResponse> meals) {}
+        List<MealSummaryResponse> meals,
+        boolean rebalanceAvailable) {}

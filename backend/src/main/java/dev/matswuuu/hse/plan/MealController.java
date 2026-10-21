@@ -1,14 +1,10 @@
 package dev.matswuuu.hse.plan;
 
+import dev.matswuuu.hse.plan.dto.CustomMealRequest;
 import dev.matswuuu.hse.plan.dto.DishCardResponse;
+import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
-import org.springframework.web.bind.annotation.GetMapping;
-import org.springframework.web.bind.annotation.PatchMapping;
-import org.springframework.web.bind.annotation.PathVariable;
-import org.springframework.web.bind.annotation.PostMapping;
-import org.springframework.web.bind.annotation.RequestBody;
-import org.springframework.web.bind.annotation.RequestMapping;
-import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.bind.annotation.*;
 
 @RestController
 @RequestMapping("/api/meals")
@@ -36,6 +32,12 @@ public class MealController {
     @PostMapping("/{id}/replace")
     public DishCardResponse replace(@PathVariable Long id) {
         return planService.replaceMeal(id);
+    }
+
+    /** The user's own meal in place of the planned one, as recognized from a photo or a description. */
+    @PostMapping("/{id}/custom")
+    public DishCardResponse replaceWithCustom(@PathVariable Long id, @Valid @RequestBody CustomMealRequest request) {
+        return planService.replaceWithCustom(id, request);
     }
 
     public record EatenRequest(@NotNull Boolean eaten) {}

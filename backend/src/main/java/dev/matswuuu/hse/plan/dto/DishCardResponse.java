@@ -10,10 +10,12 @@ public record DishCardResponse(
         String dishName,
         int cookingTimeMin,
         boolean eaten,
+        boolean custom,
         NutritionFacts facts,
         List<IngredientResponse> ingredients,
         List<String> steps,
         List<String> recipeUrls) {
 
+    /** {@code category} and {@code facts} are null for a food not in the product DB (own meals only). */
     public record IngredientResponse(String productName, String category, double grams, NutritionFacts facts) {}
 }

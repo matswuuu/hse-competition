@@ -20,6 +20,8 @@ export interface MealSummary {
   dishName: string
   cookingTimeMin: number
   eaten: boolean
+  /** The user's own meal in place of the planned dish. */
+  custom: boolean
   facts: NutritionFacts
 }
 
@@ -34,6 +36,8 @@ export interface DayView {
   withinTolerance: boolean
   deviationPct: number
   meals: MealSummary[]
+  /** The user put in an own meal, the day went off target and planned meals are left to adjust. */
+  rebalanceAvailable: boolean
 }
 
 export interface Week {
@@ -48,9 +52,10 @@ export interface Week {
 
 export interface Ingredient {
   productName: string
-  category: string
+  /** Null with `facts` for a food not in the product DB (own meals only): it is not counted. */
+  category: string | null
   grams: number
-  facts: NutritionFacts
+  facts: NutritionFacts | null
 }
 
 export interface DishCard {
@@ -60,6 +65,7 @@ export interface DishCard {
   dishName: string
   cookingTimeMin: number
   eaten: boolean
+  custom: boolean
   facts: NutritionFacts
   ingredients: Ingredient[]
   steps: string[]
@@ -100,4 +106,17 @@ export const dish = (mealId: number) => get<DishCard>(`/api/meals/${mealId}`)
 
 export const setEaten = (mealId: number, eaten: boolean) => patch<DishCard>(`/api/meals/${mealId}/eaten`, { eaten })
 
+/** Refits the day's remaining planned meals around the user's own ones. */
+export const rebalanceDay = (dayIndex: number) => post<DayView>(`/api/plans/current/days/${dayIndex}/rebalance`)
+
 export const replace = (mealId: number) => post<DishCard>(`/api/meals/${mealId}/replace`)
+
+export interface CustomMeal {
+  dishName: string
+  /** `grams` in the product's dry/raw state; `productName` null for a food not in the DB. */
+  items: { name: string; productName: string | null; grams: number }[]
+  eaten: boolean
+}
+
+export const replaceWithCustom = (mealId: number, meal: CustomMeal) =>
+  post<DishCard>(`/api/meals/${mealId}/custom`, meal)

@@ -212,11 +212,76 @@ public class PlanService {
 
     @Transactional(readOnly = true)
     public DayViewResponse day(int dayIndex) {
-        MealPlan plan = latestPlan();
-        PlanDay day = dayRepository.findByPlanIdOrderByDayIndex(plan.getId()).stream()
-                .filter(d -> d.getDayIndex() == dayIndex)
-                .findFirst()
-                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Day not found"));
+        return dayView(requireDay(dayIndex));
+    }
+
+    /**
+     * Brings a manually edited day back to its target: the user's own meals and eaten ones stay as they are,
+     * the remaining planned meals get their portions refitted to what the day still needs.
+     * The change is kept only when it brings the day closer to the target.
+     */
+    @Transactional
+    public DayViewResponse rebalanceDay(int dayIndex) {
+        User user = CurrentUser.get();
+        PlanDay day = requireDay(dayIndex);
+        List<MealEntry> meals = mealRepository.findByDayIdOrdered(day.getId());
+        if (meals.stream().noneMatch(MealEntry::isCustom)) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "The day was not edited manually");
+        }
+        NutritionFacts fixed = NutritionFacts.ZERO;
+        List<MealEntry> adjustable = new ArrayList<>();
+        List<PlannedMeal> planned = new ArrayList<>();
+        for (MealEntry meal : meals) {
+            List<MealIngredient> ingredients = ingredientRepository.findByMealId(meal.getId());
+            if (isAdjustable(meal)) {
+                adjustable.add(meal);
+                planned.add(new PlannedMeal(meal.getMealType(), meal.getDishName(), meal.getCookingTimeMin(),
+                        ingredients.stream().map(i -> new PlannedIngredient(i.getProductName(), i.getGrams())).toList(),
+                        List.copyOf(meal.getSteps())));
+            } else {
+                fixed = fixed.add(nutritionService.factsForEntities(ingredients));
+            }
+        }
+        if (adjustable.isEmpty()) {
+            throw new ResponseStatusException(HttpStatus.CONFLICT, "No planned meals left to adjust");
+        }
+
+        Map<String, Product> index = nutritionService.productIndex();
+        NutritionFacts target = targetOf(day);
+        NutritionFacts remaining = new NutritionFacts(
+                Math.max(target.kcal() - fixed.kcal(), 0),
+                Math.max(target.proteinG() - fixed.proteinG(), 0),
+                Math.max(target.fatG() - fixed.fatG(), 0),
+                Math.max(target.carbsG() - fixed.carbsG(), 0));
+        NutritionFacts current = NutritionFacts.ZERO;
+        for (PlannedMeal meal : planned) {
+            current = current.add(nutritionService.factsFor(meal.ingredients(), index));
+        }
+        double before = fixed.add(current).maxDeviationPct(target);
+        // A rough calorie scale first: per-ingredient fitting only moves each portion within bounded steps.
+        double factor = current.kcal() > 0 ? clamp(remaining.kcal() / current.kcal(), 0.5, 1.5) : 1.0;
+        List<PlannedMeal> fitted = demoPlanner.fitMeals(planned.stream().map(m -> m.scaled(factor)).toList(), remaining);
+        NutritionFacts fittedFacts = NutritionFacts.ZERO;
+        for (PlannedMeal meal : fitted) {
+            fittedFacts = fittedFacts.add(nutritionService.factsFor(meal.ingredients(), index));
+        }
+        double after = fixed.add(fittedFacts).maxDeviationPct(target);
+        if (after >= before) {
+            log.info("Rebalancing day {} for user {} found nothing better (deviation {}%)",
+                    dayIndex, user.getId(), Math.round(before * 10.0) / 10.0);
+            throw new ResponseStatusException(HttpStatus.UNPROCESSABLE_ENTITY, "Could not get closer to the target");
+        }
+
+        for (int m = 0; m < adjustable.size(); m++) {
+            MealEntry meal = adjustable.get(m);
+            ingredientRepository.deleteAll(ingredientRepository.findByMealId(meal.getId()));
+            for (PlannedIngredient ingredient : fitted.get(m).ingredients()) {
+                persistIngredient(meal, ingredient, index);
+            }
+        }
+        log.info("Rebalanced day {} for user {}: {} meals adjusted, deviation {}% -> {}%",
+                dayIndex, user.getId(), adjustable.size(),
+                Math.round(before * 10.0) / 10.0, Math.round(after * 10.0) / 10.0);
         return dayView(day);
     }
 
@@ -233,8 +298,8 @@ public class PlanService {
     @Transactional
     public DishCardResponse setEaten(Long mealId, boolean eaten) {
         MealEntry meal = requireOwned(mealId);
-        if (meal.isEaten() != eaten) {
-            // Eating uses up what is in the fridge; un-marking puts it back.
+        if (meal.isEaten() != eaten && !meal.isCustom()) {
+            // Eating uses up what is in the fridge; un-marking puts it back. Own meals were not cooked from it.
             List<MealIngredient> ingredients = ingredientRepository.findByMealId(mealId);
             if (eaten) {
                 pantryService.consume(CurrentUser.get(), ingredients);
@@ -309,6 +374,7 @@ public class PlanService {
         meal.setDishName(alt.dishName());
         meal.setCookingTimeMin(alt.cookingTimeMin());
         meal.setEaten(false);
+        meal.setCustom(false);
         meal.getSteps().clear();
         meal.getSteps().addAll(alt.steps());
         ingredientRepository.deleteAll(ingredientRepository.findByMealId(mealId));
@@ -317,6 +383,50 @@ public class PlanService {
             persistIngredient(meal, ingredient, index);
         }
         analyticsService.log(user, AnalyticsEventType.DISH_REPLACED, "mealId=%d dish=%s".formatted(mealId, alt.dishName()));
+        return dishCardOf(meal);
+    }
+
+    /**
+     * The user's own meal in place of the planned one (recognized from a photo or a description).
+     * КБЖУ is recomputed from the product DB; foods not in it are kept for display but not counted.
+     * Day totals and deviation follow automatically, as they are always computed from the meals.
+     */
+    @Transactional
+    public DishCardResponse replaceWithCustom(Long mealId, CustomMealRequest request) {
+        User user = CurrentUser.get();
+        MealEntry meal = requireOwned(mealId);
+        List<MealIngredient> previous = ingredientRepository.findByMealId(mealId);
+        if (meal.isEaten() && !meal.isCustom()) {
+            // The planned dish was not eaten after all: give its products back to the fridge.
+            pantryService.restore(user, previous);
+        }
+        ingredientRepository.deleteAll(previous);
+
+        meal.setDishName(request.dishName().strip());
+        meal.setCookingTimeMin(0);
+        meal.getSteps().clear();
+        meal.setCustom(true);
+        meal.setEaten(request.eaten());
+        Map<String, Product> index = nutritionService.productIndex();
+        int matched = 0;
+        for (CustomMealRequest.Item item : request.items()) {
+            Product product = item.productName() == null || item.productName().isBlank()
+                    ? null
+                    : nutritionService.resolve(item.productName(), index);
+            MealIngredient ingredient = new MealIngredient();
+            ingredient.setMeal(meal);
+            ingredient.setProductName(product == null ? item.name().strip() : product.getName());
+            ingredient.setProduct(product);
+            ingredient.setGrams(Math.round(item.grams()));
+            ingredientRepository.save(ingredient);
+            if (product != null) {
+                matched++;
+            }
+        }
+        log.info("User {} replaced mealId={} with own meal ({} items, {} matched, eaten={})",
+                user.getId(), mealId, request.items().size(), matched, request.eaten());
+        analyticsService.log(user, AnalyticsEventType.DISH_REPLACED,
+                "mealId=%d custom=true dish=%s".formatted(mealId, meal.getDishName()));
         return dishCardOf(meal);
     }
 
@@ -456,6 +566,23 @@ public class PlanService {
                 .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "No meal plan yet, generate one"));
     }
 
+    private PlanDay requireDay(int dayIndex) {
+        MealPlan plan = latestPlan();
+        return dayRepository.findByPlanIdOrderByDayIndex(plan.getId()).stream()
+                .filter(d -> d.getDayIndex() == dayIndex)
+                .findFirst()
+                .orElseThrow(() -> new ResponseStatusException(HttpStatus.NOT_FOUND, "Day not found"));
+    }
+
+    /** Rebalancing touches only planned meals not eaten yet. */
+    private static boolean isAdjustable(MealEntry meal) {
+        return !meal.isCustom() && !meal.isEaten();
+    }
+
+    private static NutritionFacts targetOf(PlanDay day) {
+        return new NutritionFacts(day.getTargetKcal(), day.getTargetProteinG(), day.getTargetFatG(), day.getTargetCarbsG());
+    }
+
     private MealEntry requireOwned(Long mealId) {
         User user = CurrentUser.get();
         MealEntry meal = mealRepository
@@ -498,14 +625,19 @@ public class PlanService {
             NutritionFacts facts = nutritionService.factsForEntities(ingredientRepository.findByMealId(meal.getId()));
             totals = totals.add(facts);
             summaries.add(new MealSummaryResponse(
-                    meal.getId(), meal.getMealType(), meal.getDishName(), meal.getCookingTimeMin(), meal.isEaten(), facts));
+                    meal.getId(), meal.getMealType(), meal.getDishName(), meal.getCookingTimeMin(), meal.isEaten(),
+                    meal.isCustom(), facts));
         }
-        NutritionFacts targets =
-                new NutritionFacts(day.getTargetKcal(), day.getTargetProteinG(), day.getTargetFatG(), day.getTargetCarbsG());
+        NutritionFacts targets = targetOf(day);
         double deviation = totals.maxDeviationPct(targets);
+        boolean withinTolerance = deviation <= properties.getTolerancePct();
+        // Offered only for a day the user edited by hand that went off target and still has meals to adjust.
+        boolean rebalanceAvailable = !withinTolerance
+                && meals.stream().anyMatch(MealEntry::isCustom)
+                && meals.stream().anyMatch(PlanService::isAdjustable);
         return new DayViewResponse(
                 day.getId(), day.getDayIndex(), day.getDate(), day.isTrainingDay(), targets, totals,
-                deviation <= properties.getTolerancePct(), Math.round(deviation * 10.0) / 10.0, summaries);
+                withinTolerance, Math.round(deviation * 10.0) / 10.0, summaries, rebalanceAvailable);
     }
 
     private DishCardResponse dishCardOf(MealEntry meal) {
@@ -518,13 +650,14 @@ public class PlanService {
                 meal.getDishName(),
                 meal.getCookingTimeMin(),
                 meal.isEaten(),
+                meal.isCustom(),
                 facts,
                 ingredients.stream()
                         .map(i -> new DishCardResponse.IngredientResponse(
                                 i.getProductName(),
                                 i.getProduct() == null ? null : i.getProduct().getCategory(),
                                 i.getGrams(),
-                                nutritionService.factsForEntities(List.of(i))))
+                                i.getProduct() == null ? null : nutritionService.factsForEntities(List.of(i))))
                         .toList(),
                 List.copyOf(meal.getSteps()),
                 dishCatalog.recipeUrls(meal.getDishName()));

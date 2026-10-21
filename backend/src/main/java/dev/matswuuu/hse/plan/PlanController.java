@@ -33,4 +33,10 @@ public class PlanController {
     public DayViewResponse day(@PathVariable int dayIndex) {
         return planService.day(dayIndex);
     }
+
+    /** After the user put in their own meal: refits the remaining planned meals to the day's target. */
+    @PostMapping("/current/days/{dayIndex}/rebalance")
+    public DayViewResponse rebalance(@PathVariable int dayIndex) {
+        return planService.rebalanceDay(dayIndex);
+    }
 }

@@ -272,6 +272,24 @@ public class DemoMealPlanner implements MealPlanner {
     }
 
     /**
+     * Fits several meals' portions to a shared macro target, each keeping its current share of the calories.
+     */
+    public List<PlannedMeal> fitMeals(List<PlannedMeal> meals, NutritionFacts target) {
+        Map<String, Product> index = nutritionService.productIndex();
+        double total = 0;
+        double[] kcal = new double[meals.size()];
+        for (int m = 0; m < meals.size(); m++) {
+            kcal[m] = nutritionService.factsFor(meals.get(m).ingredients(), index).kcal();
+            total += kcal[m];
+        }
+        double[] shares = new double[meals.size()];
+        for (int m = 0; m < meals.size(); m++) {
+            shares[m] = total > 0 ? kcal[m] / total : 1.0 / meals.size();
+        }
+        return fitDay(meals, target, shares, index);
+    }
+
+    /**
      * Fits a single meal's portions to the given macro target.
      */
     public PlannedMeal fitSingle(PlannedMeal meal, NutritionFacts target) {

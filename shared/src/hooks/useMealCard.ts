@@ -60,5 +60,13 @@ export function useMealCard(meal: MealSummary, onEatenChange: (eaten: boolean) =
     }
   }
 
-  return { open, card, busy, error, toggleOpen, toggleEaten, replace }
+  /** After the meal was swapped for the user's own one. */
+  function replacedWithOwn() {
+    setError(null)
+    setCard(null)
+    setOpen(false)
+    onReplaced()
+  }
+
+  return { open, card, busy, error, toggleOpen, toggleEaten, replace, replacedWithOwn }
 }
